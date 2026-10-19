@@ -32,3 +32,44 @@ models:
         description: Count of trips in the month
         data_tests:
           - not_null
+  - name: fct_daily_zone_revenue
+    description: Daily revenue aggregation by pickup zone and service type for business reporting
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - pickup_zone
+              - revenue_day
+              - service_type
+    columns:
+      - name: pickup_zone
+        description: Pickup zone where revenue was generated
+        data_tests:
+          - not_null
+      - name: revenue_day
+        description: Date for revenue aggregation
+        data_tests:
+          - not_null
+      - name: service_type
+        description: Service type (Green or Yellow)
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Green', 'Yellow']
+      - name: revenue_daily_total_amount
+        description: Daily sum of total fares
+        data_tests:
+          - not_null
+      - name: total_daily_trips
+        description: Count of trips in the day
+        data_tests:
+          - not_null
+      - name: avg_daily_passenger_count
+        description: Average number of passengers per trip
+        data_tests:
+          - not_null
+      - name: avg_daily_trip_distance
+        description: Average distance of trips
+        data_tests:
+          - not_null
