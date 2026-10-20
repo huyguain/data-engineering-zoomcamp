@@ -20,3 +20,13 @@ serving_dir
 *.parquet
 *.csv
 *.duckdb
+
+# Dữ liệu thực hành module 06-batch — tải về hoặc sinh ra, không phải mã nguồn
+06-batch/practice/data/
+
+# Spark sinh kèm mỗi file parquet
+*.crc
+_SUCCESS
+
+# *.csv ở trên không khớp .csv.gz
+*.csv.gz
