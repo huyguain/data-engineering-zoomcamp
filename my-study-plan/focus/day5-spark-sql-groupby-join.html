@@ -1,0 +1,1857 @@
+<title>Spark: Gom, Nối, Xáo trộn</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root {
+  /* nền + chữ */
+  --paper:      #F5F6F4;
+  --surface:    #FFFFFF;
+  --surface-2:  #ECEEEA;
+  --ink:        #171B21;
+  --ink-soft:   #3A414C;
+  --muted:      #656D79;
+  --rule:       #DCDFDA;
+  --rule-strong:#C3C8C0;
+
+  /* màu mang nghĩa — không dùng để trang trí */
+  --green:      #0F6E45;   /* bảng green taxi */
+  --yellow:     #A8700A;   /* bảng yellow taxi */
+  --shuffle:    #AD2B46;   /* Exchange / shuffle — thao tác đắt */
+  --broadcast:  #1F6480;   /* broadcast — thao tác rẻ */
+  --green-bg:   #E4F0E9;
+  --yellow-bg:  #F6EEDB;
+  --shuffle-bg: #F7E5E8;
+  --broadcast-bg:#E2EEF3;
+
+  --code-bg:    #1A1F27;
+  --code-fg:    #E6E9EC;
+  --code-dim:   #8C96A3;
+
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 70ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #12161C;
+    --surface:    #181D25;
+    --surface-2:  #202731;
+    --ink:        #E8EBE9;
+    --ink-soft:   #C2C8CC;
+    --muted:      #8E97A3;
+    --rule:       #2A313B;
+    --rule-strong:#3B4451;
+
+    --green:      #56C18C;
+    --yellow:     #E0B257;
+    --shuffle:    #F0788E;
+    --broadcast:  #6CC0E0;
+    --green-bg:   #16302460;
+    --yellow-bg:  #332A1060;
+    --shuffle-bg: #3A1C2460;
+    --broadcast-bg:#13303C60;
+
+    --code-bg:    #0D1117;
+    --code-fg:    #E6E9EC;
+    --code-dim:   #78828F;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #12161C;
+  --surface:    #181D25;
+  --surface-2:  #202731;
+  --ink:        #E8EBE9;
+  --ink-soft:   #C2C8CC;
+  --muted:      #8E97A3;
+  --rule:       #2A313B;
+  --rule-strong:#3B4451;
+
+  --green:      #56C18C;
+  --yellow:     #E0B257;
+  --shuffle:    #F0788E;
+  --broadcast:  #6CC0E0;
+  --green-bg:   #16302460;
+  --yellow-bg:  #332A1060;
+  --shuffle-bg: #3A1C2460;
+  --broadcast-bg:#13303C60;
+
+  --code-bg:    #0D1117;
+  --code-fg:    #E6E9EC;
+  --code-dim:   #78828F;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17.5px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+/* ---------- mở đầu ---------- */
+
+.masthead {
+  padding: 72px 0 40px;
+  border-bottom: 2px solid var(--ink);
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.5rem, 6.5vw, 4.1rem);
+  line-height: 0.98;
+  letter-spacing: -0.028em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.standfirst {
+  max-width: var(--measure);
+  font-size: 1.14rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+.standfirst strong { font-weight: 600; color: var(--ink); }
+
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 30px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.meta-strip b {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* ---------- bố cục chung ---------- */
+
+.prose { max-width: var(--measure); }
+
+h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.55rem, 3.2vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  text-wrap: balance;
+}
+h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.18rem;
+  letter-spacing: -0.01em;
+  margin: 38px 0 10px;
+  text-wrap: balance;
+}
+p { margin: 0 0 18px; max-width: var(--measure); }
+ul, ol { max-width: var(--measure); padding-left: 1.25em; margin: 0 0 18px; }
+li { margin-bottom: 9px; }
+li::marker { color: var(--muted); }
+a { color: var(--broadcast); text-underline-offset: 3px; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.855em;
+  background: var(--surface-2);
+  padding: 0.12em 0.34em;
+  border-radius: 3px;
+  word-break: break-word;
+}
+.lead-in {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.08rem;
+  color: var(--ink);
+}
+
+/* ---------- các bước ---------- */
+
+.step {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 0 28px;
+  padding: 52px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.step-no {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--shuffle);
+  padding-top: 11px;
+  position: sticky;
+  top: 20px;
+  align-self: start;
+}
+.step-body { min-width: 0; }
+.step-kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.step-aim {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border-left: 2px solid var(--rule-strong);
+  padding: 10px 14px;
+  margin: 18px 0 26px;
+  max-width: var(--measure);
+}
+.step-aim b { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 720px) {
+  .step { grid-template-columns: 1fr; gap: 0; }
+  .step-no { position: static; padding: 0 0 10px; }
+}
+
+/* ---------- code ---------- */
+
+.code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 6px;
+  margin: 0 0 20px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+}
+.code-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--code-dim);
+  padding: 9px 16px 0;
+}
+.code pre {
+  margin: 0;
+  padding: 12px 16px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.62;
+  tab-size: 4;
+}
+.code .c { color: var(--code-dim); font-style: italic; }
+.code .k { color: #FF9F7A; }
+.code .s { color: #9BD47E; }
+.code .n { color: #7FC8E8; }
+.code .hl { color: #FF8FA5; font-weight: 700; }
+
+.out {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  margin: 0 0 22px;
+  overflow: hidden;
+}
+.out-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-2);
+}
+.out pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.out pre b { color: var(--ink); font-weight: 700; }
+.out pre .sh { color: var(--shuffle); font-weight: 700; }
+.out pre .bc { color: var(--broadcast); font-weight: 700; }
+
+/* ---------- panel ---------- */
+
+.panel {
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 20px 22px;
+  margin: 26px 0;
+  max-width: var(--measure);
+  background: var(--surface);
+}
+.panel > :last-child { margin-bottom: 0; }
+.panel-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.panel.warn { border-color: var(--shuffle); background: var(--shuffle-bg); }
+.panel.warn .panel-label { color: var(--shuffle); }
+.panel.note { border-color: var(--broadcast); background: var(--broadcast-bg); }
+.panel.note .panel-label { color: var(--broadcast); }
+.panel.ask { border-style: dashed; }
+.panel.ask .panel-label { color: var(--muted); }
+
+/* ---------- bảng ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 0 24px; max-width: 100%; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 480px;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+caption {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 10px;
+}
+th {
+  text-align: left;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1.5px solid var(--ink);
+  vertical-align: bottom;
+}
+td {
+  padding: 10px 14px 10px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+td code { background: none; padding: 0; color: var(--ink); }
+td.num { text-align: right; font-family: var(--mono); font-size: 13px; }
+tr:last-child td { border-bottom: none; }
+
+/* ---------- hình ---------- */
+
+figure {
+  margin: 30px 0;
+  padding: 0;
+}
+figure svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+figcaption {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 12px;
+  max-width: var(--measure);
+  line-height: 1.55;
+}
+.fig-frame {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 20px 18px;
+  overflow-x: auto;
+}
+.fig-frame svg { min-width: 560px; }
+
+/* ---------- details ---------- */
+
+details {
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
+  padding: 0;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+}
+summary {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  padding: 13px 18px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▸ "; color: var(--shuffle); }
+details[open] summary::before { content: "▾ "; }
+details[open] summary { border-bottom: 1px dashed var(--rule-strong); }
+.details-body { padding: 18px 18px 2px; }
+.details-body .code { max-width: none; }
+details:focus-within { outline: 2px solid var(--broadcast); outline-offset: 2px; }
+summary:focus-visible { outline: 2px solid var(--broadcast); outline-offset: -2px; }
+
+/* ---------- chip ---------- */
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  vertical-align: 1px;
+}
+.chip.g { color: var(--green); background: var(--green-bg); }
+.chip.y { color: var(--yellow); background: var(--yellow-bg); }
+.chip.s { color: var(--shuffle); background: var(--shuffle-bg); }
+.chip.b { color: var(--broadcast); background: var(--broadcast-bg); }
+
+/* ---------- kết thúc ---------- */
+
+.checkpoint {
+  margin-top: 56px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 34px 32px;
+  background: var(--surface);
+}
+.checkpoint h2 { margin-bottom: 18px; }
+.checkpoint > :last-child { margin-bottom: 0; }
+
+.closing {
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Ngày 5 · Module 06-batch · Lab tự làm</p>
+  <h1>Spark: Gom,<br>Nối, Xáo trộn</h1>
+  <p class="standfirst">
+    Hôm nay bạn không học thêm cú pháp. Bạn học <strong>cách Spark thực sự chạy</strong>
+    một câu <code>GROUP BY</code> và một câu <code>JOIN</code> — cơ chế shuffle, sort-merge join,
+    broadcast join — bằng cách tự gõ từng bước rồi đọc execution plan để xác nhận.
+  </p>
+  <div class="meta-strip">
+    <span><b>Đọc:</b> 07-sql-with-spark · 09-groupby-in-spark · 10-joins-in-spark</span>
+    <span><b>Dữ liệu:</b> green + yellow 2021/01–07</span>
+    <span><b>Đã kiểm chứng trên:</b> PySpark 4.2.0 · local[*] · 10 core</span>
+  </div>
+</header>
+
+<section class="step">
+  <div class="step-no">00</div>
+  <div class="step-body">
+    <p class="step-kicker">Trước khi bắt đầu</p>
+    <h2>Ba câu hỏi của hôm nay</h2>
+    <div class="prose">
+      <p>
+        Ở Ngày 4 bạn đã đọc được file và in schema. Spark lúc đó vẫn chỉ là “pandas chạy
+        trên nhiều core”. Hôm nay là ngày Spark lộ ra bản chất phân tán của nó, qua đúng ba
+        câu hỏi:
+      </p>
+      <ol>
+        <li>
+          Khi tôi viết <code>GROUP BY</code>, Spark làm gì? → Nó chia làm
+          <b>hai lượt gom</b>, ở giữa là một lần <span class="chip s">xáo dữ liệu qua mạng</span>.
+        </li>
+        <li>
+          Khi tôi <code>JOIN</code> hai bảng lớn? → <b>Sort-merge join</b>: xáo cả hai bên
+          theo khóa, sắp xếp, rồi ghép.
+        </li>
+        <li>
+          Khi tôi <code>JOIN</code> một bảng lớn với một bảng tra cứu nhỏ? →
+          <span class="chip b">Broadcast join</span>: gửi hẳn một bản sao bảng nhỏ tới mọi
+          executor, <b>không xáo gì cả</b>.
+        </li>
+      </ol>
+      <p>
+        Toàn bộ chi phí của một job Spark nằm ở chỗ nào dữ liệu phải đi qua mạng. Hiểu ba
+        cơ chế trên là hiểu 80% việc tối ưu Spark — và đó cũng là phần hay bị hỏi nhất
+        trong phỏng vấn.
+      </p>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Cách dùng tài liệu này</p>
+      <p style="margin-bottom:0">
+        Mỗi bước có: <b>mục tiêu</b> → <b>bạn tự gõ</b> → <b>kết quả mong đợi</b> để đối chiếu.
+        Mọi con số trong tài liệu này đều lấy từ một lần chạy thật trên chính dữ liệu trong
+        máy bạn, không phải số trong video. Nếu số của bạn lệch, dừng lại tìm hiểu —
+        đó là chỗ học được nhiều nhất.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">01</div>
+  <div class="step-body">
+    <p class="step-kicker">Chuẩn bị · 5 phút</p>
+    <h2>Lấy bảng tra cứu zones</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Có đủ ba bảng cho hôm nay: green, yellow (đã có từ Ngày 4) và
+      zones (bảng nhỏ, dùng cho broadcast join ở bước 06).
+    </div>
+
+    <div class="prose">
+      <p>
+        Bảng zones không nằm trong <code>06-batch</code> nhưng repo đã có sẵn nó ở module
+        dbt của Ngày 3. Copy sang khu thực hành:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">bash · trong 06-batch/practice</div>
+<pre><span class="k">mkdir</span> -p data/raw/zones
+<span class="k">cp</span> ../../04-analytics-engineering/taxi_rides_ny/seeds/taxi_zone_lookup.csv \
+   data/raw/zones/
+
+<span class="c"># kiểm tra nhanh</span>
+<span class="k">head</span> -3 data/raw/zones/taxi_zone_lookup.csv
+<span class="k">wc</span> -l data/raw/zones/taxi_zone_lookup.csv</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>"locationid","borough","zone","service_zone"
+1,"EWR","Newark Airport","EWR"
+2,"Queens","Jamaica Bay","Boro Zone"
+<b>     266</b> data/raw/zones/taxi_zone_lookup.csv   <span class="sh">← 265 dòng + 1 dòng header</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>265 dòng, 12 KB.</b> Ghi nhớ con số này — ở bước 06 nó chính là lý do Spark
+        chọn một chiến lược join hoàn toàn khác.
+      </p>
+      <p>
+        Và kiểm tra dữ liệu Ngày 4 vẫn còn:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">bash</div>
+<pre><span class="k">source</span> env.sh
+<span class="k">ls</span> data/pq/green/2021/ data/pq/yellow/2021/   <span class="c"># 01 → 07 có dữ liệu; thư mục 08 rỗng, xem ghi chú</span></pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Thư mục <code>2021/08</code> là rác</p>
+      <p style="margin-bottom:0">
+        <code>ls</code> hiện ra <b>8</b> thư mục nhưng chỉ <b>7 tháng có dữ liệu</b>.
+        Nguyên nhân: <code>download_taxi.sh</code> chạy <code>mkdir -p</code>
+        <i>trước</i> <code>curl</code>, nên tháng 08 có thư mục rỗng sau khi tải 404.
+        Rồi <code>03_prepare_taxi_data.py</code> kiểm tra bằng
+        <code>os.path.isdir()</code> — thư mục rỗng vẫn tính là tồn tại — nên nó ghi ra
+        một file parquet <b>12 KB không có dòng nào</b>, chỉ có schema.
+        Không sai kết quả (0 dòng cộng vào thì vẫn bằng chính nó), nhưng đừng nhầm là
+        có dữ liệu tháng 8.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">02</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 07 · sql-with-spark</p>
+    <h2>Ghép green và yellow thành một bảng</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Hai bảng có schema khác nhau (20 cột vs 18 cột, tên cột thời gian
+      khác nhau). Phải chuẩn hóa về cùng một tập cột rồi mới <code>UNION</code> được.
+      Sau bước này bạn có một temp view tên <code>trips_data</code> để chạy SQL lên.
+    </div>
+
+    <div class="prose">
+      <h3>Tự làm: tạo file <code>05_spark_sql.py</code></h3>
+      <p>
+        Gõ từng khối một, chạy lại sau mỗi khối. Đừng copy cả file rồi chạy một lần —
+        bạn sẽ không thấy được từng bước nó biến đổi gì.
+      </p>
+      <p><b>Khối 1 — mở session và đọc hai bảng:</b></p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · 05_spark_sql.py</div>
+<pre><span class="k">import</span> os, sys
+os.environ.setdefault(<span class="s">"PYSPARK_PYTHON"</span>, sys.executable)
+
+<span class="k">from</span> pyspark.sql <span class="k">import</span> SparkSession, functions <span class="k">as</span> F
+
+spark = (SparkSession.builder
+         .master(<span class="s">"local[*]"</span>)
+         .appName(<span class="s">"day5-spark-sql"</span>)
+         .getOrCreate())
+spark.sparkContext.setLogLevel(<span class="s">"ERROR"</span>)
+
+df_green  = spark.read.parquet(<span class="s">"data/pq/green/2021/*"</span>)
+df_yellow = spark.read.parquet(<span class="s">"data/pq/yellow/2021/*"</span>)
+
+<span class="k">print</span>(<span class="s">"green :"</span>, df_green.count(),  df_green.rdd.getNumPartitions(), <span class="s">"partition"</span>)
+<span class="k">print</span>(<span class="s">"yellow:"</span>, df_yellow.count(), df_yellow.rdd.getNumPartitions(), <span class="s">"partition"</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>green : <b>570466</b> 10 partition
+yellow: <b>15000700</b> 11 partition</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Yellow lớn hơn green <b>26 lần</b>. Ghi nhớ tỷ lệ này: nó giải thích vì sao mọi
+        job hôm nay đều mất thời gian ở nhánh yellow.
+      </p>
+
+      <p><b>Khối 2 — tìm tập cột chung.</b> Thử trước khi đổi tên:</p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre><span class="k">print</span>(<span class="k">sorted</span>(<span class="k">set</span>(df_green.columns) &amp; <span class="k">set</span>(df_yellow.columns)))</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả — 16 cột, thiếu hẳn cột thời gian</div>
+<pre>['DOLocationID', 'PULocationID', 'RatecodeID', 'VendorID',
+ 'congestion_surcharge', 'extra', 'fare_amount', 'improvement_surcharge',
+ 'mta_tax', 'passenger_count', 'payment_type', 'store_and_fwd_flag',
+ 'tip_amount', 'tolls_amount', 'total_amount', 'trip_distance']</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Bẫy đầu tiên</p>
+      <p style="margin-bottom:0">
+        Cột thời gian <b>biến mất</b> khỏi tập giao, vì green gọi nó là
+        <code>lpep_pickup_datetime</code> còn yellow gọi là <code>tpep_pickup_datetime</code>
+        (<code>l</code> = livery/green, <code>t</code> = taxi/yellow). Nếu cứ thế mà
+        <code>UNION</code>, bạn sẽ có một bảng gộp <b>không có thời gian</b> — và sẽ không
+        nhận ra cho tới khi câu <code>GROUP BY</code> theo tháng báo lỗi.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p><b>Khối 3 — đổi tên rồi mới lấy tập chung:</b></p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_green = (df_green
+    .withColumnRenamed(<span class="s">'lpep_pickup_datetime'</span>,  <span class="s">'pickup_datetime'</span>)
+    .withColumnRenamed(<span class="s">'lpep_dropoff_datetime'</span>, <span class="s">'dropoff_datetime'</span>))
+
+df_yellow = (df_yellow
+    .withColumnRenamed(<span class="s">'tpep_pickup_datetime'</span>,  <span class="s">'pickup_datetime'</span>)
+    .withColumnRenamed(<span class="s">'tpep_dropoff_datetime'</span>, <span class="s">'dropoff_datetime'</span>))
+
+<span class="c"># giữ ĐÚNG THỨ TỰ cột của green, không dùng set() — set không có thứ tự</span>
+yellow_cols = <span class="k">set</span>(df_yellow.columns)
+common = [c <span class="k">for</span> c <span class="k">in</span> df_green.columns <span class="k">if</span> c <span class="k">in</span> yellow_cols]
+<span class="k">print</span>(<span class="k">len</span>(common), common)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả — 18 cột, có thời gian</div>
+<pre><b>18</b> ['VendorID', 'pickup_datetime', 'dropoff_datetime', 'store_and_fwd_flag',
+    'RatecodeID', 'PULocationID', 'DOLocationID', 'passenger_count',
+    'trip_distance', 'fare_amount', 'extra', 'mta_tax', 'tip_amount',
+    'tolls_amount', 'improvement_surcharge', 'total_amount',
+    'payment_type', 'congestion_surcharge']</pre>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Vì sao dùng list-comprehension chứ không dùng set</p>
+      <p style="margin-bottom:0">
+        <code>unionAll</code> trong Spark ghép theo <b>vị trí cột</b>, không theo tên.
+        Nếu bạn lấy <code>set(...)</code> rồi <code>select</code>, thứ tự là ngẫu nhiên theo
+        hash — hai DataFrame có thể ra thứ tự khác nhau và bạn sẽ union <code>tip_amount</code>
+        của bên này vào <code>fare_amount</code> của bên kia. Spark <b>không báo lỗi</b> vì
+        cả hai đều là <code>double</code>. Đây là loại bug âm thầm, chỉ lộ ra khi con số
+        báo cáo sai. Muốn ghép theo tên thì dùng <code>unionByName</code>.
+      </p>
+    </div>
+
+    <div class="prose">
+      <p><b>Khối 4 — gắn nhãn nguồn rồi gộp:</b></p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_green_sel = (df_green.select(common)
+                .withColumn(<span class="s">'service_type'</span>, F.lit(<span class="s">'green'</span>)))
+df_yellow_sel = (df_yellow.select(common)
+                 .withColumn(<span class="s">'service_type'</span>, F.lit(<span class="s">'yellow'</span>)))
+
+df_trips = df_green_sel.unionAll(df_yellow_sel)
+df_trips.createOrReplaceTempView(<span class="s">'trips_data'</span>)
+
+spark.sql(<span class="s">"""
+    SELECT service_type, count(1) AS n
+    FROM trips_data GROUP BY service_type
+"""</span>).show()</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>+------------+--------+
+|service_type|       n|
++------------+--------+
+|       green|  <b>570466</b>|
+|      yellow|<b>15000700</b>|
++------------+--------+</pre>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Khác với video khóa học</p>
+      <p style="margin-bottom:0">
+        Video dùng <code>df.registerTempTable(...)</code>. Trên PySpark 4.2 lệnh đó
+        <b>vẫn chạy</b> nhưng ném <code>FutureWarning: Deprecated in 2.0</code>.
+        Dùng <code>createOrReplaceTempView</code>. Khác biệt thật sự nằm ở chữ “Replace”:
+        gọi lại lần hai sẽ ghi đè view cũ thay vì báo lỗi trùng tên — tiện khi bạn chạy
+        đi chạy lại trong cùng một session.
+      </p>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Tự trả lời trước khi sang bước sau</p>
+      <p style="margin-bottom:0">
+        <code>F.lit('green')</code> tạo ra một cột hằng. Nếu bảng green có 570.466 dòng,
+        Spark có lưu 570.466 lần chuỗi <code>"green"</code> không, hay nó làm gì khác?
+        (Gợi ý: nhìn dòng <code>Project</code> trong <code>explain()</code> ở bước sau —
+        bạn sẽ thấy <code>green AS service_type</code>, tức là giá trị được sinh ra
+        <b>lúc chạy</b>, không đọc từ đĩa.)
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">03</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 07 · báo cáo doanh thu</p>
+    <h2>Chạy SQL thật lên DataFrame</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Thấy rằng Spark SQL và DataFrame API chỉ là hai mặt của cùng một
+      thứ: cả hai đều biên dịch xuống <i>cùng một</i> execution plan.
+    </div>
+
+    <div class="prose">
+      <p>
+        Đây chính là câu query doanh thu bạn đã viết bằng dbt ở Ngày 3 — giờ chạy trên
+        Spark, không cần data warehouse nào cả:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_result = spark.sql(<span class="s">"""
+SELECT
+    PULocationID                              AS revenue_zone,
+    date_trunc('month', pickup_datetime)      AS revenue_month,
+    service_type,
+
+    SUM(fare_amount)        AS revenue_monthly_fare,
+    SUM(total_amount)       AS revenue_monthly_total_amount,
+    AVG(passenger_count)    AS avg_monthly_passenger_count,
+    AVG(trip_distance)      AS avg_monthly_trip_distance
+FROM trips_data
+GROUP BY 1, 2, 3
+"""</span>)
+
+<span class="k">print</span>(<span class="s">"số dòng:"</span>, df_result.count())
+df_result.orderBy(<span class="s">'revenue_zone'</span>, <span class="s">'revenue_month'</span>).show(5, truncate=<span class="k">False</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>số dòng: <b>3713</b>
+
++------------+-------------------+------------+--------------------+----------------------------+
+|revenue_zone|revenue_month      |service_type|revenue_monthly_fare|revenue_monthly_total_amount|
++------------+-------------------+------------+--------------------+----------------------------+
+|1           |2021-01-01 00:00:00|green       |100.0               |100.3                       |
+|1           |2021-01-01 00:00:00|yellow      |3148.5              |3608.2000000000003          |
+|1           |2021-02-01 00:00:00|yellow      |2536.51             |2935.9399999999996          |
+|1           |2021-03-01 00:00:00|green       |205.0               |205.6                       |
+|1           |2021-03-01 00:00:00|yellow      |5218.5599999999995  |6042.310000000001           |
++------------+-------------------+------------+--------------------+----------------------------+</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>3.713 dòng</b> — từ 15,5 triệu dòng đầu vào. Đó là bản chất của aggregate:
+        đầu vào khổng lồ, đầu ra bé xíu. Và cũng là lý do vì sao Spark gom <i>hai lượt</i>
+        thay vì một — bước sau sẽ giải thích.
+      </p>
+      <p>
+        Để ý <code>3608.2000000000003</code>. Đó không phải lỗi Spark mà là
+        <code>double</code> của IEEE-754. Trong hệ thống tài chính thật, cột tiền phải là
+        <code>DECIMAL</code>, không bao giờ là <code>double</code> — một câu hỏi phỏng vấn
+        rất hay gặp ở vị trí banking.
+      </p>
+
+      <h3>Ghi kết quả: <code>coalesce</code> hay <code>repartition</code>?</h3>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_result.coalesce(<span class="n">1</span>).write.parquet(<span class="s">'data/report/revenue/'</span>, mode=<span class="s">'overwrite'</span>)</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Không có <code>coalesce(1)</code> bạn sẽ nhận hàng trăm file vài KB. Phân biệt:
+      </p>
+      <ul>
+        <li>
+          <code>coalesce(n)</code> — chỉ <b>gộp</b> partition lại, không xáo dữ liệu.
+          Rẻ, nhưng chỉ giảm được số partition, và có thể làm lệch tải.
+        </li>
+        <li>
+          <code>repartition(n)</code> — xáo lại toàn bộ (<span class="chip s">một lần shuffle</span>),
+          chia đều. Đắt hơn, nhưng tăng/giảm đều được và dữ liệu cân.
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">04</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 09 · groupby-in-spark</p>
+    <h2>Mổ xẻ một câu GROUP BY</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Đây là bước quan trọng nhất hôm nay. Bạn sẽ đọc
+      <code>explain()</code> và nhìn thấy tận mắt hai lượt gom cùng cái
+      <code>Exchange</code> nằm giữa.
+    </div>
+
+    <div class="prose">
+      <p>Tính doanh thu <b>theo giờ, theo zone</b> cho riêng green và riêng yellow:</p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_green.createOrReplaceTempView(<span class="s">'green'</span>)
+df_yellow.createOrReplaceTempView(<span class="s">'yellow'</span>)
+
+<span class="k">def</span> revenue(table):
+    <span class="k">return</span> spark.sql(<span class="s">f"""
+        SELECT date_trunc('hour', pickup_datetime) AS hour,
+               PULocationID                        AS zone,
+               SUM(total_amount)                   AS amount,
+               COUNT(1)                            AS number_records
+        FROM {table}
+        WHERE pickup_datetime >= '2021-01-01'
+        GROUP BY 1, 2
+    """</span>)
+
+df_green_rev  = revenue(<span class="s">'green'</span>)
+df_yellow_rev = revenue(<span class="s">'yellow'</span>)
+
+<span class="k">print</span>(<span class="s">"green :"</span>, df_green_rev.count(),  df_green_rev.rdd.getNumPartitions())
+<span class="k">print</span>(<span class="s">"yellow:"</span>, df_yellow_rev.count(), df_yellow_rev.rdd.getNumPartitions())</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>green : <b>251050</b> 5 partition
+yellow: <b>583097</b> 10 partition</pre>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Vì sao có mệnh đề WHERE</p>
+      <p style="margin-bottom:0">
+        Dữ liệu taxi có những bản ghi rác với mốc thời gian từ 2008 hoặc 2009. Không lọc
+        thì báo cáo của bạn có thêm vài nghìn dòng vô nghĩa. Nhưng mệnh đề này còn làm một
+        việc khác quan trọng hơn — xem <code>PushedFilters</code> ở ngay dưới đây.
+      </p>
+    </div>
+
+    <div class="prose">
+      <h3>Bây giờ đọc plan</h3>
+      <p>
+        <code>explain(mode="formatted")</code> cho bản dễ đọc nhất. Chạy:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_green_rev.explain(mode=<span class="s">"formatted"</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Plan thật — đọc từ dưới lên</div>
+<pre>== Physical Plan ==
+AdaptiveSparkPlan (16)
++- == Final Plan ==
+   ResultQueryStage (10)
+   +- * HashAggregate (9)              <b>← lượt gom THỨ HAI (cuối cùng)</b>
+      +- AQEShuffleRead (8), coalesced
+         +- ShuffleQueryStage (7), Statistics(sizeInBytes=12.5 MiB, rowCount=3.27E+5)
+            +- <span class="sh">Exchange (6)</span>                <span class="sh">← DỮ LIỆU ĐI QUA MẠNG Ở ĐÂY</span>
+               +- * HashAggregate (5)  <b>← lượt gom THỨ NHẤT (cục bộ)</b>
+                  +- * Project (4)
+                     +- * Filter (3)
+                        +- * ColumnarToRow (2)
+                           +- Scan parquet  (1)
+
+(1) Scan parquet
+Output [3]: [lpep_pickup_datetime, PULocationID, total_amount]   <b>← chỉ 3/20 cột</b>
+PushedFilters: [IsNotNull(lpep_pickup_datetime),
+                GreaterThanOrEqual(lpep_pickup_datetime, 2021-01-01 00:00:00.0)]
+
+(5) HashAggregate
+Functions [2]: [<b>partial_sum</b>(total_amount), <b>partial_count</b>(1)]   <b>← "partial"</b>
+
+(6) <span class="sh">Exchange</span>
+Arguments: <span class="sh">hashpartitioning</span>(_groupingexpression, PULocationID, <b>200</b>), ENSURE_REQUIREMENTS
+
+(9) HashAggregate
+Functions [2]: [<b>sum</b>(total_amount), <b>count</b>(1)]                   <b>← không còn "partial"</b></pre>
+    </div>
+
+    <div class="prose">
+      <p>Bốn điều phải rút ra từ plan này:</p>
+      <ol>
+        <li>
+          <b><code>Scan parquet · Output [3]</code></b> — Spark chỉ đọc 3 trên 20 cột.
+          Đây là <i>column pruning</i>, thứ chỉ parquet làm được chứ CSV thì không.
+        </li>
+        <li>
+          <b><code>PushedFilters</code></b> — mệnh đề <code>WHERE</code> bị đẩy xuống tận
+          lớp đọc file. Spark loại bỏ cả <i>row group</i> của parquet mà không giải nén.
+          Lọc không chỉ cho kết quả đúng, nó còn giảm I/O.
+        </li>
+        <li>
+          <b><code>partial_sum</code> rồi mới <code>sum</code></b> — bằng chứng của hai
+          lượt gom. Lượt một chạy <i>bên trong từng partition</i>, nên nó không nhìn thấy
+          dữ liệu của partition khác và chỉ cho ra kết quả tạm.
+        </li>
+        <li>
+          <b><code>Exchange hashpartitioning(..., 200)</code></b> — đây là shuffle.
+          Spark băm khóa <code>(giờ, zone)</code> rồi ném mỗi bản ghi tạm sang partition
+          <code>hash(khóa) % 200</code>. Mọi bản ghi cùng khóa <b>chắc chắn</b> rơi vào
+          cùng một partition. Chỉ khi đó lượt gom thứ hai mới cho ra con số đúng.
+        </li>
+      </ol>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 452" role="img" aria-label="Sơ đồ hai lượt gom của GROUP BY: mỗi partition gom cục bộ ra kết quả tạm, Exchange xáo các kết quả tạm theo khóa, rồi lượt gom thứ hai cộng chúng lại thành một dòng">
+          <defs>
+            <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ar-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--shuffle)"/>
+            </marker>
+          </defs>
+
+          <text x="0" y="14" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">LƯỢT GOM 1 — TRONG TỪNG PARTITION</text>
+
+          <!-- input partitions -->
+          <g font-family="var(--mono)" font-size="11.5" fill="currentColor">
+            <rect x="8"   y="30" width="222" height="50" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="269" y="30" width="222" height="50" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="530" y="30" width="222" height="50" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="119" y="49" text-anchor="middle" font-weight="700">partition 1</text>
+            <text x="380" y="49" text-anchor="middle" font-weight="700">partition 2</text>
+            <text x="641" y="49" text-anchor="middle" font-weight="700">partition 3</text>
+            <text x="119" y="68" text-anchor="middle" fill="var(--muted)">(h1,z1) 40 · (h1,z1) 60 · (h1,z2) 200</text>
+            <text x="380" y="68" text-anchor="middle" fill="var(--muted)">(h1,z1) 30 · (h1,z2) 90</text>
+            <text x="641" y="68" text-anchor="middle" fill="var(--muted)">(h1,z1) 25 · (h1,z2) 10</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" color="var(--muted)">
+            <line x1="119" y1="80" x2="119" y2="104"/>
+            <line x1="380" y1="80" x2="380" y2="104"/>
+            <line x1="641" y1="80" x2="641" y2="104"/>
+          </g>
+          <text x="134" y="98" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">partial_sum + partial_count</text>
+
+          <!-- subresults -->
+          <g font-family="var(--mono)" font-size="11.5" fill="currentColor">
+            <rect x="8"   y="110" width="222" height="46" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="269" y="110" width="222" height="46" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="530" y="110" width="222" height="46" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="119" y="128" text-anchor="middle" font-size="10.5" fill="var(--muted)">kết quả tạm</text>
+            <text x="119" y="146" text-anchor="middle">(h1,z1)=100 · (h1,z2)=200</text>
+            <text x="380" y="128" text-anchor="middle" font-size="10.5" fill="var(--muted)">kết quả tạm</text>
+            <text x="380" y="146" text-anchor="middle">(h1,z1)=30 · (h1,z2)=90</text>
+            <text x="641" y="128" text-anchor="middle" font-size="10.5" fill="var(--muted)">kết quả tạm</text>
+            <text x="641" y="146" text-anchor="middle">(h1,z1)=25 · (h1,z2)=10</text>
+          </g>
+
+          <g stroke="var(--shuffle)" stroke-width="1.3" marker-end="url(#ar-s)">
+            <line x1="119" y1="156" x2="119" y2="192"/>
+            <line x1="380" y1="156" x2="380" y2="192"/>
+            <line x1="641" y1="156" x2="641" y2="192"/>
+          </g>
+
+          <!-- exchange band -->
+          <rect x="8" y="196" width="744" height="52" rx="3" fill="var(--shuffle-bg)" stroke="var(--shuffle)" stroke-width="1.6"/>
+          <text x="380" y="218" text-anchor="middle" font-family="var(--mono)" font-size="12.5" font-weight="700" fill="var(--shuffle)">EXCHANGE · hashpartitioning(giờ, zone)</text>
+          <text x="380" y="236" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--shuffle)">dữ liệu rời executor, đi qua mạng — đây là chỗ tốn kém nhất</text>
+
+          <g stroke="var(--shuffle)" stroke-width="1.3" marker-end="url(#ar-s)" fill="none">
+            <path d="M 240 248 L 240 268"/>
+            <path d="M 520 248 L 520 268"/>
+          </g>
+
+          <text x="0" y="296" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">LƯỢT GOM 2 — SAU KHI CÙNG KHÓA ĐÃ VỀ CÙNG CHỖ</text>
+
+          <!-- regrouped partitions -->
+          <g font-family="var(--mono)" font-size="11.5" fill="currentColor">
+            <rect x="100" y="310" width="280" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="420" y="310" width="280" height="56" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="240" y="329" text-anchor="middle" font-weight="700">partition A — chỉ khóa (h1,z1)</text>
+            <text x="240" y="352" text-anchor="middle" fill="var(--muted)">100 · 30 · 25</text>
+            <text x="560" y="329" text-anchor="middle" font-weight="700">partition B — chỉ khóa (h1,z2)</text>
+            <text x="560" y="352" text-anchor="middle" fill="var(--muted)">200 · 90 · 10</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#ar)" color="var(--muted)">
+            <line x1="240" y1="366" x2="240" y2="392"/>
+            <line x1="560" y1="366" x2="560" y2="392"/>
+          </g>
+          <text x="255" y="384" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">sum + count</text>
+
+          <g font-family="var(--mono)" font-size="12" fill="currentColor">
+            <rect x="100" y="398" width="280" height="40" rx="3" fill="var(--green-bg)" stroke="var(--green)" stroke-width="1.4"/>
+            <rect x="420" y="398" width="280" height="40" rx="3" fill="var(--green-bg)" stroke="var(--green)" stroke-width="1.4"/>
+            <text x="240" y="423" text-anchor="middle" font-weight="700" fill="var(--green)">(h1, z1) → 155</text>
+            <text x="560" y="423" text-anchor="middle" font-weight="700" fill="var(--green)">(h1, z2) → 300</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        Vì sao phải hai lượt: lượt một chỉ nhìn thấy dữ liệu trong partition của mình nên
+        chỉ cho được tổng cục bộ. Nhưng chính lượt một làm cho shuffle rẻ đi —
+        Spark xáo <b>kết quả tạm</b> (ở đây là 12,5 MiB / 327.000 dòng) chứ không xáo
+        570.466 dòng gốc.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>Vì sao 200 trong plan nhưng chỉ 5 partition thật</h3>
+      <p>
+        Plan ghi <code>hashpartitioning(..., 200)</code> — đó là
+        <code>spark.sql.shuffle.partitions</code>, mặc định 200 của Spark. Nhưng
+        <code>getNumPartitions()</code> trả về <b>5</b>. Lý do nằm ở hai dòng này:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">plan</div>
+<pre>ShuffleQueryStage (7), Statistics(sizeInBytes=<span class="hl">12.5 MiB</span>, rowCount=3.27E+5)
+AQEShuffleRead (8), <span class="hl">coalesced</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>AQE — Adaptive Query Execution.</b> Spark chạy xong lượt gom một, <i>đo</i>
+        thấy kết quả chỉ có 12,5 MiB, và tự kết luận: chia 12,5 MiB thành 200 partition
+        là vô lý (mỗi cái 64 KB, chi phí quản lý task còn lớn hơn công việc thật).
+        Nên nó gộp lại còn 5. Yellow nhiều dữ liệu hơn nên được 10.
+      </p>
+      <p>
+        Trong video khóa học (Spark 3.0, AQE chưa bật mặc định) bạn sẽ thấy đúng 200 file
+        nhỏ và phải tự <code>repartition</code>. Từ Spark 3.2 trở đi AQE bật sẵn và làm hộ
+        việc đó. Kiểm chứng:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre><span class="k">print</span>(spark.conf.get(<span class="s">"spark.sql.adaptive.enabled"</span>))        <span class="c"># true</span>
+<span class="k">print</span>(spark.conf.get(<span class="s">"spark.sql.shuffle.partitions"</span>))      <span class="c"># 200</span>
+
+<span class="c"># Thử tắt AQE để thấy đúng cảnh trong video:</span>
+spark.conf.set(<span class="s">"spark.sql.adaptive.enabled"</span>, <span class="s">"false"</span>)
+<span class="k">print</span>(revenue(<span class="s">'green'</span>).rdd.getNumPartitions())        <span class="c"># → 200</span>
+spark.conf.set(<span class="s">"spark.sql.adaptive.enabled"</span>, <span class="s">"true"</span>)</pre>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Câu này hay được hỏi</p>
+      <p style="margin-bottom:0">
+        “Spark job của anh ra 200 file vài KB, anh xử lý thế nào?” — Trả lời đủ ba tầng:
+        <b>(1)</b> con số 200 đến từ <code>spark.sql.shuffle.partitions</code>;
+        <b>(2)</b> từ Spark 3.2 AQE tự gộp lại dựa trên kích thước đo được lúc chạy, bật
+        bằng <code>spark.sql.adaptive.coalescePartitions.enabled</code>;
+        <b>(3)</b> nếu buộc phải kiểm soát tay thì <code>coalesce</code> khi chỉ cần gộp,
+        <code>repartition</code> khi cần chia lại cho đều.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">05</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 10 · joins-in-spark · phần 1</p>
+    <h2>Nối hai bảng lớn: sort-merge join</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Nối bảng doanh thu green với bảng doanh thu yellow theo
+      <code>(giờ, zone)</code>, rồi nhận ra <code>SortMergeJoin</code> dùng đúng cơ chế
+      shuffle vừa học ở bước trên.
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>g = (df_green_rev
+     .withColumnRenamed(<span class="s">'amount'</span>,         <span class="s">'green_amount'</span>)
+     .withColumnRenamed(<span class="s">'number_records'</span>, <span class="s">'green_number_records'</span>))
+
+y = (df_yellow_rev
+     .withColumnRenamed(<span class="s">'amount'</span>,         <span class="s">'yellow_amount'</span>)
+     .withColumnRenamed(<span class="s">'number_records'</span>, <span class="s">'yellow_number_records'</span>))
+
+df_join = g.join(y, on=[<span class="s">'hour'</span>, <span class="s">'zone'</span>], how=<span class="s">'outer'</span>)
+
+<span class="k">print</span>(<span class="s">"số dòng:"</span>, df_join.count())
+df_join.orderBy(<span class="s">'hour'</span>, <span class="s">'zone'</span>).show(5, truncate=<span class="k">False</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>số dòng: <b>669590</b>
+
++-------------------+----+------------+--------------------+-------------+---------------------+
+|hour               |zone|green_amount|green_number_records|yellow_amount|yellow_number_records|
++-------------------+----+------------+--------------------+-------------+---------------------+
+|2021-01-01 00:00:00|4   |<b>NULL</b>        |<b>NULL</b>                |64.4         |3                    |
+|2021-01-01 00:00:00|7   |61.47       |2                   |71.3         |2                    |
+|2021-01-01 00:00:00|10  |<b>NULL</b>        |<b>NULL</b>                |52.4         |1                    |
+|2021-01-01 00:00:00|13  |<b>NULL</b>        |<b>NULL</b>                |73.9         |3                    |
+|2021-01-01 00:00:00|17  |102.34      |3                   |32.3         |2                    |
++-------------------+----+------------+--------------------+-------------+---------------------+</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Kiểm tra con số: green có 251.050 khóa, yellow có 583.097, kết quả outer join là
+        <b>669.590</b>. Vậy số khóa xuất hiện ở <i>cả hai</i> bảng là
+        251.050 + 583.097 − 669.590 = <b>164.557</b>. Những giờ-zone còn lại chỉ có một
+        loại taxi chạy — và <code>outer</code> giữ chúng lại với giá trị <code>NULL</code>.
+        Dùng <code>inner</code> bạn sẽ mất 505.033 dòng mà không hề được cảnh báo.
+      </p>
+
+      <h3>Đọc plan</h3>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_join.explain(mode=<span class="s">"formatted"</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Plan thật — chú ý cấu trúc hai nhánh</div>
+<pre>== Physical Plan ==
+AdaptiveSparkPlan (17)
++- Project (16)
+   +- <b>SortMergeJoin FullOuter (15)</b>
+      :- Sort (7)                           <span class="sh">← nhánh GREEN</span>
+      :  +- HashAggregate (6)
+      :     +- <span class="sh">Exchange (5)</span>
+      :        +- HashAggregate (4)
+      :           +- Project (3)
+      :              +- Filter (2)
+      :                 +- Scan parquet (1)   <b>green/2021/01 … 7 entries</b>
+      +- Sort (14)                          <span class="sh">← nhánh YELLOW</span>
+         +- HashAggregate (13)
+            +- <span class="sh">Exchange (12)</span>
+               +- HashAggregate (11)
+                  +- Project (10)
+                     +- Filter (9)
+                        +- Scan parquet (8)  <b>yellow/2021/01 … 7 entries</b>
+
+(15) SortMergeJoin
+Left keys  [2]: [hour, zone]
+Right keys [2]: [hour, zone]
+Join type: <b>FullOuter</b>
+
+(16) Project
+Output: [<b>coalesce</b>(hour#174, hour#180) AS hour, <b>coalesce</b>(zone#175, zone#181) AS zone, …]</pre>
+    </div>
+
+    <div class="prose">
+      <p>Ba điều đáng chú ý:</p>
+      <ul>
+        <li>
+          <b>Plan có hình chữ Y.</b> Hai nhánh độc lập, mỗi nhánh tự đọc parquet, tự gom,
+          tự <code>Exchange</code> — rồi mới gặp nhau ở <code>SortMergeJoin</code>.
+          Hai nhánh này chạy <b>song song</b>.
+        </li>
+        <li>
+          <b>Mỗi nhánh có <code>Sort</code> ngay trước join.</b> Đó là lý do nó tên là
+          <i>sort</i>-merge join: một khi hai dãy đã sắp xếp theo khóa, việc ghép chỉ là
+          chạy hai con trỏ song song một lượt — độ phức tạp tuyến tính, không cần giữ cả
+          bảng trong RAM.
+        </li>
+        <li>
+          <b><code>coalesce(hour#174, hour#180)</code></b> ở bước <code>Project</code>.
+          Với full outer join, khóa có thể <code>NULL</code> ở một bên, nên Spark phải lấy
+          giá trị bên nào không null. Đây chính là cái bạn hay quên khi viết tay
+          <code>ON a.hour = b.hour</code> rồi <code>SELECT a.hour</code> — dòng nào chỉ có
+          ở bảng b sẽ ra <code>NULL</code>.
+        </li>
+      </ul>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 378" role="img" aria-label="Sơ đồ sort-merge join: cả bảng green và bảng yellow đều bị xáo theo cùng một hàm băm trên khóa, mỗi bên được sắp xếp, rồi hai dãy đã sắp xếp được ghép bằng hai con trỏ chạy song song">
+          <defs>
+            <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ar2-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--shuffle)"/>
+            </marker>
+          </defs>
+
+          <!-- green side -->
+          <rect x="8" y="10" width="340" height="48" rx="3" fill="var(--green-bg)" stroke="var(--green)" stroke-width="1.4"/>
+          <text x="178" y="30" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="var(--green)">green_revenue · 251.050 khóa</text>
+          <text x="178" y="48" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--green)">5 partition, khóa nằm rải rác khắp nơi</text>
+
+          <!-- yellow side -->
+          <rect x="412" y="10" width="340" height="48" rx="3" fill="var(--yellow-bg)" stroke="var(--yellow)" stroke-width="1.4"/>
+          <text x="582" y="30" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="var(--yellow)">yellow_revenue · 583.097 khóa</text>
+          <text x="582" y="48" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--yellow)">10 partition, khóa nằm rải rác khắp nơi</text>
+
+          <g stroke="var(--shuffle)" stroke-width="1.3" marker-end="url(#ar2-s)">
+            <line x1="178" y1="58" x2="178" y2="84"/>
+            <line x1="582" y1="58" x2="582" y2="84"/>
+          </g>
+
+          <!-- exchange, same hash both sides -->
+          <rect x="8" y="88" width="340" height="44" rx="3" fill="var(--shuffle-bg)" stroke="var(--shuffle)" stroke-width="1.6"/>
+          <rect x="412" y="88" width="340" height="44" rx="3" fill="var(--shuffle-bg)" stroke="var(--shuffle)" stroke-width="1.6"/>
+          <text x="178" y="107" text-anchor="middle" font-family="var(--mono)" font-size="11.5" font-weight="700" fill="var(--shuffle)">Exchange</text>
+          <text x="178" y="123" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--shuffle)">hash(giờ, zone) % 200</text>
+          <text x="582" y="107" text-anchor="middle" font-family="var(--mono)" font-size="11.5" font-weight="700" fill="var(--shuffle)">Exchange</text>
+          <text x="582" y="123" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--shuffle)">hash(giờ, zone) % 200</text>
+
+          <!-- the key claim: same hash -->
+          <line x1="348" y1="110" x2="412" y2="110" stroke="var(--shuffle)" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="380" y="150" text-anchor="middle" font-family="var(--mono)" font-size="10.5" font-weight="700" fill="var(--shuffle)">CÙNG một hàm băm, CÙNG số partition</text>
+          <text x="380" y="166" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">→ khóa giống nhau chắc chắn về cùng một chỗ</text>
+
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)" color="var(--muted)">
+            <line x1="178" y1="176" x2="178" y2="198"/>
+            <line x1="582" y1="176" x2="582" y2="198"/>
+          </g>
+
+          <!-- sort -->
+          <rect x="60" y="202" width="236" height="38" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <rect x="464" y="202" width="236" height="38" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+          <text x="178" y="226" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="currentColor">Sort theo (giờ, zone)</text>
+          <text x="582" y="226" text-anchor="middle" font-family="var(--mono)" font-size="11.5" fill="currentColor">Sort theo (giờ, zone)</text>
+
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)" color="var(--muted)" fill="none">
+            <path d="M 178 240 L 178 262 L 330 262 L 330 282"/>
+            <path d="M 582 240 L 582 262 L 430 262 L 430 282"/>
+          </g>
+
+          <!-- merge -->
+          <rect x="190" y="286" width="380" height="44" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.6"/>
+          <text x="380" y="305" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="currentColor">SortMergeJoin FullOuter</text>
+          <text x="380" y="321" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--muted)">hai con trỏ chạy song song trên hai dãy đã sắp xếp</text>
+
+          <line x1="380" y1="330" x2="380" y2="348" stroke="currentColor" stroke-width="1.2" marker-end="url(#ar2)" color="var(--muted)"/>
+          <text x="380" y="368" text-anchor="middle" font-family="var(--mono)" font-size="11.5" font-weight="700" fill="currentColor">669.590 dòng · bên nào thiếu thì NULL</text>
+        </svg>
+      </div>
+      <figcaption>
+        Điều kiện khiến sort-merge join chạy đúng là <b>cả hai bên dùng chung một hàm băm
+        và chung số partition</b>. Hệ quả thực tế: nếu dữ liệu bị lệch — ví dụ một zone
+        chiếm 40% số chuyến — thì một partition sẽ phình to và một task sẽ chạy mãi không
+        xong. Đó chính là <i>data skew</i>.
+      </figcaption>
+    </figure>
+
+    <div class="panel ask">
+      <p class="panel-label">Tự thử</p>
+      <p style="margin-bottom:0">
+        Đổi <code>how='outer'</code> thành <code>how='inner'</code> rồi chạy lại
+        <code>explain()</code>. Plan có đổi kiểu join không? Bước <code>Project</code> với
+        <code>coalesce</code> còn không? Vì sao?
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">06</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 10 · joins-in-spark · phần 2</p>
+    <h2>Nối với bảng nhỏ: broadcast join</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Nối bảng 669.590 dòng với bảng tra cứu 265 dòng, và thấy
+      <code>Exchange</code> màu đỏ biến mất hoàn toàn khỏi plan.
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre>df_zones = (spark.read
+            .option(<span class="s">"header"</span>, <span class="s">"true"</span>)
+            .option(<span class="s">"inferSchema"</span>, <span class="s">"true"</span>)
+            .csv(<span class="s">"data/raw/zones/taxi_zone_lookup.csv"</span>))
+
+df_zones.printSchema()
+<span class="k">print</span>(<span class="s">"zones:"</span>, df_zones.count(), <span class="s">"dòng"</span>)
+
+df_with_zone = (df_join
+    .join(df_zones, df_join.zone == df_zones.locationid)
+    .drop(<span class="s">'locationid'</span>, <span class="s">'zone'</span>))
+
+df_with_zone.explain(mode=<span class="s">"formatted"</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Plan thật — tầng trên cùng</div>
+<pre>== Physical Plan ==
+AdaptiveSparkPlan (23)
++- Project (22)
+   +- <span class="bc">BroadcastHashJoin Inner BuildRight (21)</span>
+      :- Project (17)
+      :  +- Filter (16)
+      :     +- SortMergeJoin FullOuter (15)      <b>← phần cũ của bước 05</b>
+      :        … (nhánh green + nhánh yellow)
+      +- <span class="bc">BroadcastExchange (20)</span>
+         +- Filter (19)
+            +- Scan csv (18)                     <b>← bảng zones</b>
+
+(20) <span class="bc">BroadcastExchange</span>
+Arguments: HashedRelationBroadcastMode(List(cast(input[0, int, false] as bigint)), false)
+
+(21) <span class="bc">BroadcastHashJoin</span>
+Left keys  [1]: [zone]
+Right keys [1]: [locationid]
+Join type: Inner</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Không hề có <code>Exchange</code> nào trên nhánh bảng lớn. Toàn bộ 669.590 dòng
+        <b>đứng yên tại chỗ</b>. Thứ di chuyển là bảng zones — và nó chỉ đi một chiều,
+        một lần.
+      </p>
+      <p>
+        <code>BuildRight</code> nghĩa là Spark chọn bảng bên phải để “xây” bảng băm.
+        <code>HashedRelationBroadcastMode</code> nghĩa là nó biến 265 dòng đó thành một
+        <code>HashMap</code> trong RAM, rồi gửi bản sao tới mọi executor. Mỗi executor tra
+        cứu bằng O(1), không cần nói chuyện với ai.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 314" role="img" aria-label="Sơ đồ broadcast join: bảng zones 12 KB được sao chép thành bảng băm gửi tới cả ba executor, còn các partition của bảng lớn không di chuyển đi đâu">
+          <defs>
+            <marker id="ar3-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--broadcast)"/>
+            </marker>
+          </defs>
+
+          <rect x="250" y="8" width="260" height="46" rx="3" fill="var(--broadcast-bg)" stroke="var(--broadcast)" stroke-width="1.6"/>
+          <text x="380" y="27" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="var(--broadcast)">zones · 265 dòng · 12 KB</text>
+          <text x="380" y="44" text-anchor="middle" font-family="var(--mono)" font-size="10" fill="var(--broadcast)">12.056 byte  &lt;  ngưỡng 10 MB</text>
+
+          <line x1="380" y1="54" x2="380" y2="76" stroke="var(--broadcast)" stroke-width="1.3" marker-end="url(#ar3-b)"/>
+          <text x="392" y="70" font-family="var(--mono)" font-size="10" fill="var(--broadcast)">dựng HashMap</text>
+
+          <rect x="190" y="80" width="380" height="36" rx="3" fill="var(--broadcast-bg)" stroke="var(--broadcast)" stroke-width="1.6"/>
+          <text x="380" y="103" text-anchor="middle" font-family="var(--mono)" font-size="11.5" font-weight="700" fill="var(--broadcast)">BroadcastExchange — gửi 1 bản sao tới MỌI executor</text>
+
+          <g stroke="var(--broadcast)" stroke-width="1.3" marker-end="url(#ar3-b)" fill="none">
+            <path d="M 300 116 L 300 134 L 119 134 L 119 158"/>
+            <path d="M 380 116 L 380 158"/>
+            <path d="M 460 116 L 460 134 L 641 134 L 641 158"/>
+          </g>
+
+          <!-- executors -->
+          <g font-family="var(--mono)" font-size="11">
+            <rect x="8"   y="162" width="222" height="94" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="269" y="162" width="222" height="94" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="530" y="162" width="222" height="94" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="119" y="180" text-anchor="middle" font-weight="700" fill="currentColor">executor 1</text>
+            <text x="380" y="180" text-anchor="middle" font-weight="700" fill="currentColor">executor 2</text>
+            <text x="641" y="180" text-anchor="middle" font-weight="700" fill="currentColor">executor 3</text>
+
+            <rect x="24"  y="190" width="190" height="26" rx="3" fill="var(--broadcast-bg)" stroke="var(--broadcast)" stroke-width="1.1"/>
+            <rect x="285" y="190" width="190" height="26" rx="3" fill="var(--broadcast-bg)" stroke="var(--broadcast)" stroke-width="1.1"/>
+            <rect x="546" y="190" width="190" height="26" rx="3" fill="var(--broadcast-bg)" stroke="var(--broadcast)" stroke-width="1.1"/>
+            <text x="119" y="208" text-anchor="middle" font-size="10.5" fill="var(--broadcast)">bản sao zones (RAM)</text>
+            <text x="380" y="208" text-anchor="middle" font-size="10.5" fill="var(--broadcast)">bản sao zones (RAM)</text>
+            <text x="641" y="208" text-anchor="middle" font-size="10.5" fill="var(--broadcast)">bản sao zones (RAM)</text>
+
+            <rect x="24"  y="222" width="190" height="24" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.1"/>
+            <rect x="285" y="222" width="190" height="24" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.1"/>
+            <rect x="546" y="222" width="190" height="24" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.1"/>
+            <text x="119" y="239" text-anchor="middle" font-size="10.5" fill="currentColor">partition bảng lớn</text>
+            <text x="380" y="239" text-anchor="middle" font-size="10.5" fill="currentColor">partition bảng lớn</text>
+            <text x="641" y="239" text-anchor="middle" font-size="10.5" fill="currentColor">partition bảng lớn</text>
+          </g>
+
+          <text x="380" y="283" text-anchor="middle" font-family="var(--mono)" font-size="12" font-weight="700" fill="currentColor">669.590 dòng KHÔNG di chuyển đi đâu cả</text>
+          <text x="380" y="302" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">không Exchange · không Sort · chỉ 1 stage</text>
+        </svg>
+      </div>
+      <figcaption>
+        Khác biệt duy nhất so với hình trước: mũi tên đi <b>từ bảng nhỏ ra</b>, thay vì cả
+        hai bảng lớn cùng bị xáo. Đó là toàn bộ lý do broadcast join nhanh hơn nhiều lần.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>Ngưỡng quyết định</h3>
+      <p>Spark tự chọn broadcast khi bảng nhỏ hơn một ngưỡng. Kiểm tra:</p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre><span class="k">print</span>(spark.conf.get(<span class="s">"spark.sql.autoBroadcastJoinThreshold"</span>))
+<span class="c"># → 10485760b  (10 MB)</span>
+
+<span class="c"># Spark ước lượng bảng zones bao nhiêu byte?</span>
+<span class="k">print</span>(df_zones._jdf.queryExecution().optimizedPlan().stats().sizeInBytes())
+<span class="c"># → 12056   →  12 KB, thừa sức nằm dưới ngưỡng 10 MB</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Khi cần ép, dùng <code>F.broadcast()</code> — nó bỏ qua phần ước lượng và ra lệnh
+        trực tiếp:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python</div>
+<pre><span class="k">from</span> pyspark.sql.functions <span class="k">import</span> broadcast
+df_join.join(<span class="hl">broadcast</span>(df_zones), df_join.zone == df_zones.locationid)</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Khi nào broadcast phản tác dụng</p>
+      <p style="margin-bottom:0">
+        Bảng được broadcast phải vừa trong RAM của <b>driver</b> (driver gom nó lại trước)
+        <b>và</b> của <b>mọi executor</b> (mỗi executor giữ một bản). Broadcast nhầm một
+        bảng 2 GB lên cụm 50 executor là 100 GB RAM bốc hơi, thường kết thúc bằng
+        <code>OutOfMemoryError</code> ở driver hoặc
+        <code>Total size of serialized results … is bigger than spark.driver.maxResultSize</code>.
+        Đặt <code>autoBroadcastJoinThreshold = -1</code> để tắt hẳn cơ chế tự động khi cần.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">07</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài tập buổi chiều · tự viết từ đầu</p>
+    <h2>Job doanh thu theo ngày và theo vùng</h2>
+
+    <div class="step-aim">
+      <b>ĐỀ BÀI</b> — Viết file <code>06_daily_zone_revenue.py</code>, nhận tham số dòng
+      lệnh, và làm đủ ba việc: <b>join</b> hai bảng taxi, <b>groupBy</b> theo vùng và theo
+      ngày, tính <b>count / sum / avg</b>. Đây đúng là yêu cầu buổi chiều Ngày 5 trong kế
+      hoạch của bạn.
+    </div>
+
+    <div class="prose">
+      <p>Yêu cầu cụ thể — <b>tự viết trước, đừng mở phần lời giải:</b></p>
+      <ol>
+        <li>
+          Nhận 3 tham số: <code>--input_green</code>, <code>--input_yellow</code>,
+          <code>--output</code> (dùng <code>argparse</code>).
+        </li>
+        <li>
+          Gộp green + yellow thành <code>trips_data</code> như bước 02.
+        </li>
+        <li>
+          Gom theo <code>(zone_id, ngày, service_type)</code>, tính
+          <code>COUNT(1)</code>, <code>SUM(total_amount)</code>,
+          <code>AVG(trip_distance)</code>.
+        </li>
+        <li>
+          Join kết quả với <code>zones</code> để có tên vùng và borough — và <b>ép</b>
+          broadcast bằng <code>F.broadcast()</code>.
+        </li>
+        <li>
+          Lọc <code>pickup_datetime</code> trong khoảng
+          <code>[2021-01-01, 2021-09-01)</code>.
+        </li>
+        <li>
+          Ghi parquet, rồi gọi <code>explain(mode="formatted")</code> và tự chỉ ra:
+          có mấy <code>Exchange</code>? Có <code>BroadcastExchange</code> không?
+        </li>
+      </ol>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả cần khớp</div>
+<pre>số dòng: <b>91049</b>
+
++-------+-------------------+------------+-----+------------------+------------------+---------+--------------+
+|zone_id|day                |service_type|trips|total_revenue     |avg_distance      |borough  |zone          |
++-------+-------------------+------------+-----+------------------+------------------+---------+--------------+
+|161    |2021-03-18 00:00:00|yellow      |2803 |<b>442708.07</b>         |2.0408704958972517|Manhattan|Midtown Center|
+|234    |2021-04-10 00:00:00|yellow      |2137 |<b>429405.61</b>         |2.1380439868975194|Manhattan|Union Sq      |
+|132    |2021-07-18 00:00:00|yellow      |4369 |261299.66         |16.150869764248103|Queens   |JFK Airport   |
+|132    |2021-07-05 00:00:00|yellow      |4285 |246623.84         |15.541878646441083|Queens   |JFK Airport   |
+|132    |2021-07-12 00:00:00|yellow      |4033 |235352.15         |15.631259608232076|Queens   |JFK Airport   |
++-------+-------------------+------------+-----+------------------+------------------+---------+--------------+</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Nhìn kỹ hai dòng đầu — đây mới là bài học thật</p>
+      <p>
+        Midtown Center ngày 18/03: 2.803 chuyến, doanh thu 442.708 USD → trung bình
+        <b>158 USD/chuyến</b>, trong khi quãng đường trung bình chỉ 2,04 dặm. Vô lý.
+        Chạy câu này để tìm thủ phạm:
+      </p>
+      <div class="code" style="margin-bottom:12px">
+        <div class="code-head">sql</div>
+<pre><span class="k">SELECT</span> max(total_amount), min(total_amount) <span class="k">FROM</span> yellow</pre>
+      </div>
+      <p style="margin-bottom:0">
+        Kết quả: <b>max = 398.469,20</b> và <b>min = −647,80</b>. Một chuyến taxi duy nhất
+        “thu” gần 400 nghìn đô đã bẻ cong cả báo cáo ngày hôm đó; và có cả những chuyến
+        tiền âm. <b>Mọi <code>SUM</code> không kèm kiểm tra chất lượng dữ liệu đều là một
+        lời nói dối chờ ngày bị phát hiện.</b> Trong phỏng vấn, nhận ra chi tiết này quan
+        trọng hơn hẳn việc viết đúng cú pháp join.
+      </p>
+    </div>
+
+    <details>
+      <summary>Mở lời giải tham khảo (chỉ mở sau khi đã tự viết xong)</summary>
+      <div class="details-body">
+        <div class="code">
+          <div class="code-head">python · 06_daily_zone_revenue.py</div>
+<pre><span class="s">"""Doanh thu theo ngày × vùng × loại taxi.
+
+Chạy:
+  source env.sh
+  python 06_daily_zone_revenue.py \
+      --input_green  'data/pq/green/2021/*'  \
+      --input_yellow 'data/pq/yellow/2021/*' \
+      --zones        data/raw/zones/taxi_zone_lookup.csv \
+      --output       data/report/daily_zone_revenue
+"""</span>
+<span class="k">import</span> argparse, os, sys
+os.environ.setdefault(<span class="s">"PYSPARK_PYTHON"</span>, sys.executable)
+
+<span class="k">from</span> pyspark.sql <span class="k">import</span> SparkSession, functions <span class="k">as</span> F
+
+p = argparse.ArgumentParser()
+p.add_argument(<span class="s">'--input_green'</span>,  required=<span class="k">True</span>)
+p.add_argument(<span class="s">'--input_yellow'</span>, required=<span class="k">True</span>)
+p.add_argument(<span class="s">'--zones'</span>,        required=<span class="k">True</span>)
+p.add_argument(<span class="s">'--output'</span>,       required=<span class="k">True</span>)
+args = p.parse_args()
+
+spark = (SparkSession.builder.master(<span class="s">"local[*]"</span>)
+         .appName(<span class="s">"daily-zone-revenue"</span>).getOrCreate())
+spark.sparkContext.setLogLevel(<span class="s">"ERROR"</span>)
+
+<span class="c"># --- 1. chuẩn hoá hai bảng về cùng tập cột -----------------------------</span>
+df_green = (spark.read.parquet(args.input_green)
+    .withColumnRenamed(<span class="s">'lpep_pickup_datetime'</span>,  <span class="s">'pickup_datetime'</span>)
+    .withColumnRenamed(<span class="s">'lpep_dropoff_datetime'</span>, <span class="s">'dropoff_datetime'</span>))
+
+df_yellow = (spark.read.parquet(args.input_yellow)
+    .withColumnRenamed(<span class="s">'tpep_pickup_datetime'</span>,  <span class="s">'pickup_datetime'</span>)
+    .withColumnRenamed(<span class="s">'tpep_dropoff_datetime'</span>, <span class="s">'dropoff_datetime'</span>))
+
+yellow_cols = <span class="k">set</span>(df_yellow.columns)
+common = [c <span class="k">for</span> c <span class="k">in</span> df_green.columns <span class="k">if</span> c <span class="k">in</span> yellow_cols]
+
+trips = (df_green.select(common).withColumn(<span class="s">'service_type'</span>, F.lit(<span class="s">'green'</span>))
+         .unionAll(
+         df_yellow.select(common).withColumn(<span class="s">'service_type'</span>, F.lit(<span class="s">'yellow'</span>))))
+trips.createOrReplaceTempView(<span class="s">'trips_data'</span>)
+
+<span class="c"># --- 2. groupBy ngày × vùng × loại -------------------------------------</span>
+daily = spark.sql(<span class="s">"""
+SELECT PULocationID                        AS zone_id,
+       date_trunc('day', pickup_datetime)  AS day,
+       service_type,
+       COUNT(1)                            AS trips,
+       SUM(total_amount)                   AS total_revenue,
+       AVG(trip_distance)                  AS avg_distance
+FROM trips_data
+WHERE pickup_datetime >= '2021-01-01'
+  AND pickup_datetime &lt;  '2021-09-01'
+GROUP BY 1, 2, 3
+"""</span>)
+
+<span class="c"># --- 3. broadcast join với bảng tra cứu --------------------------------</span>
+zones = (spark.read.option(<span class="s">"header"</span>, <span class="s">"true"</span>)
+         .option(<span class="s">"inferSchema"</span>, <span class="s">"true"</span>).csv(args.zones))
+
+result = (daily
+    .join(F.broadcast(zones), daily.zone_id == zones.locationid)
+    .drop(<span class="s">'locationid'</span>))
+
+<span class="k">print</span>(<span class="s">"số dòng:"</span>, result.count())
+result.orderBy(F.desc(<span class="s">'total_revenue'</span>)).show(5, truncate=<span class="k">False</span>)
+result.explain(mode=<span class="s">"formatted"</span>)
+
+result.write.mode(<span class="s">'overwrite'</span>).parquet(args.output)
+spark.stop()</pre>
+        </div>
+
+        <div class="prose">
+          <p style="margin-bottom:0">
+            <b>Plan của lời giải này có đúng 1 <code>Exchange</code> và 1
+            <code>BroadcastExchange</code>.</b> Chú ý thêm: <code>Union</code> nằm
+            <i>dưới</i> <code>HashAggregate</code> đầu tiên, nghĩa là Spark gộp hai nguồn
+            rồi gom <b>một lượt duy nhất</b> — không phải gom riêng rồi mới gộp. Nó cũng
+            đẩy được filter ngày xuống cả hai lần <code>Scan parquet</code>
+            (<code>PushedFilters</code> có cả <code>GreaterThanOrEqual</code> lẫn
+            <code>LessThan</code>).
+          </p>
+        </div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<section class="step" style="border-bottom:none">
+  <div class="step-no">08</div>
+  <div class="step-body">
+    <p class="step-kicker">Tổng kết</p>
+    <h2>Bảng số liệu đã kiểm chứng</h2>
+
+    <div class="prose">
+      <p>
+        Toàn bộ các con số dưới đây lấy từ một lần chạy thật trên máy bạn
+        (PySpark 4.2.0, <code>local[*]</code>, 10 core, dữ liệu 2021/01–07).
+        Dùng để đối chiếu khi tự chạy lại.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <caption>Số liệu tham chiếu Ngày 5</caption>
+        <thead>
+          <tr><th>Phép đo</th><th>Kết quả</th><th>Vì sao đáng nhớ</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>green</code> 2021/01–07</td><td class="num">570.466 dòng</td><td>10 partition</td></tr>
+          <tr><td><code>yellow</code> 2021/01–07</td><td class="num">15.000.700 dòng</td><td>Gấp 26 lần green — mọi job đều nghẽn ở đây</td></tr>
+          <tr><td>Cột chung trước khi đổi tên</td><td class="num">16</td><td>Thiếu cột thời gian</td></tr>
+          <tr><td>Cột chung sau khi đổi tên</td><td class="num">18</td><td>Bẫy <code>lpep_</code> / <code>tpep_</code></td></tr>
+          <tr><td>Báo cáo doanh thu tháng</td><td class="num">3.713 dòng</td><td>Từ 15,5 triệu dòng đầu vào</td></tr>
+          <tr><td>Doanh thu giờ × zone — green</td><td class="num">251.050 dòng</td><td>AQE gộp còn 5 partition</td></tr>
+          <tr><td>Doanh thu giờ × zone — yellow</td><td class="num">583.097 dòng</td><td>AQE gộp còn 10 partition</td></tr>
+          <tr><td>Kích thước dữ liệu shuffle (green)</td><td class="num">12,5 MiB</td><td>327.000 dòng tạm, không phải 570.466 dòng gốc</td></tr>
+          <tr><td>Outer join hai bảng doanh thu</td><td class="num">669.590 dòng</td><td>Chỉ 164.557 khóa có ở cả hai bên</td></tr>
+          <tr><td>Bảng <code>zones</code></td><td class="num">265 dòng · 12.056 byte</td><td>Dưới ngưỡng broadcast 10 MB</td></tr>
+          <tr><td>Doanh thu ngày × zone × loại</td><td class="num">91.049 dòng</td><td>Bài tập buổi chiều</td></tr>
+          <tr><td><code>max(total_amount)</code> yellow</td><td class="num">398.469,20</td><td>Một chuyến duy nhất bẻ cong cả báo cáo</td></tr>
+          <tr><td><code>min(total_amount)</code> yellow</td><td class="num">−647,80</td><td>Có cả chuyến tiền âm</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Ba chiến lược join — chọn cái nào</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Chiến lược</th><th>Khi nào Spark chọn</th><th>Chi phí mạng</th><th>Dấu hiệu trong plan</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="chip b">Broadcast hash join</span></td>
+            <td>Một bên &lt; <code>autoBroadcastJoinThreshold</code> (10 MB), hoặc bị ép bằng <code>F.broadcast()</code></td>
+            <td>Chỉ gửi bảng nhỏ, 1 lần</td>
+            <td><code>BroadcastExchange</code> + <code>BroadcastHashJoin</code></td>
+          </tr>
+          <tr>
+            <td><span class="chip s">Sort-merge join</span></td>
+            <td>Mặc định cho hai bảng lớn có khóa so sánh được</td>
+            <td>Xáo <b>cả hai</b> bên theo khóa</td>
+            <td>Hai <code>Exchange</code> + hai <code>Sort</code> + <code>SortMergeJoin</code></td>
+          </tr>
+          <tr>
+            <td>Shuffle hash join</td>
+            <td>Một bên vừa RAM executor sau khi xáo, và <code>preferSortMergeJoin=false</code></td>
+            <td>Xáo cả hai, nhưng không sắp xếp</td>
+            <td><code>ShuffledHashJoin</code>, không có <code>Sort</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section class="checkpoint">
+  <p class="step-kicker">Checkpoint Ngày 5</p>
+  <h2>Catalyst khác gì với BigQuery?</h2>
+
+  <div class="prose">
+    <p class="lead-in">
+      Câu checkpoint trong kế hoạch: <i>“Giải thích được Spark SQL chạy qua Catalyst
+      optimizer khác gì so với BigQuery SQL.”</i> Dưới đây là cách trả lời có chiều sâu,
+      bám vào đúng những gì bạn vừa nhìn thấy trong <code>explain()</code>.
+    </p>
+
+    <h3>Giống nhau: cùng bốn chặng</h3>
+    <p>
+      Cả hai đều là engine SQL phân tán, và đều đi qua: <b>parse</b> → <b>phân giải tên</b>
+      → <b>tối ưu logic</b> → <b>sinh kế hoạch vật lý</b>. Những tối ưu kinh điển bạn thấy
+      trong plan hôm nay — column pruning (<code>Output [3]</code> trên 20 cột), predicate
+      pushdown (<code>PushedFilters</code>), partial aggregation
+      (<code>partial_sum</code>) — <b>cả hai engine đều làm</b>. Đó là lý do kinh nghiệm
+      tối ưu SQL của bạn từ Ngày 1–3 vẫn dùng được nguyên.
+    </p>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th style="width:22%">Khía cạnh</th><th>Spark SQL / Catalyst</th><th>BigQuery</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>Bạn nhìn thấy gì</b></td>
+          <td>Toàn bộ cây operator qua <code>explain()</code>, và <b>can thiệp được</b>: viết rule riêng, cắm extension vào Catalyst, dùng hint <code>BROADCAST</code>/<code>MERGE</code>, chỉnh <code>shuffle.partitions</code>.</td>
+          <td>Execution graph trong tab Execution details. Đọc được, nhưng <b>không sửa được</b> — đây là dịch vụ đóng, Google giữ quyền quyết định.</td>
+        </tr>
+        <tr>
+          <td><b>Đầu vào</b></td>
+          <td>Bất cứ thứ gì có DataFrame: parquet, CSV, JSON, JDBC, Kafka — và trộn cả Python/Scala vào giữa câu SQL qua UDF.</td>
+          <td>Chủ yếu bảng trong BigQuery hoặc external table. Ngoài SQL thì gần như chỉ có UDF JavaScript/SQL.</td>
+        </tr>
+        <tr>
+          <td><b>Thống kê để tối ưu</b></td>
+          <td>Thường <b>không có</b> sẵn — file parquet trên lake không mang thống kê. Nên Catalyst bù lại bằng <b>AQE</b>: chạy xong một stage, đo thật, rồi <b>sửa plan giữa chừng</b> (gộp 200 → 5 partition như bạn vừa thấy, đổi sort-merge thành broadcast, tách partition bị skew).</td>
+          <td>Có thống kê đầy đủ và cập nhật cho mọi bảng quản lý. Plan được chọn tốt ngay từ đầu, ít cần sửa giữa chừng.</td>
+        </tr>
+        <tr>
+          <td><b>Tài nguyên</b></td>
+          <td>Bạn tự khai: bao nhiêu executor, bao nhiêu RAM, bao nhiêu core. Khai sai → OOM hoặc chạy chậm. Trách nhiệm thuộc về bạn.</td>
+          <td>Serverless. Google cấp slot động. Bạn không thấy máy nào cả.</td>
+        </tr>
+        <tr>
+          <td><b>Trả tiền cho cái gì</b></td>
+          <td>Thời gian cụm chạy. Job chậm = tiền nhiều, dù đọc ít dữ liệu.</td>
+          <td>Số byte <b>quét</b>. Nên partition + cluster (Ngày 1) ăn thẳng vào hóa đơn.</td>
+        </tr>
+        <tr>
+          <td><b>Lỗi lộ ra lúc nào</b></td>
+          <td>Lười (lazy): <code>groupBy</code>, <code>join</code> không chạy gì. Tới <code>show()</code>/<code>write()</code> mới nổ — và stack trace trỏ vào dòng <code>show()</code>, không phải dòng sai thật.</td>
+          <td>Submit là chạy. Lỗi cú pháp và lỗi kiểu bị bắt ngay lúc phân tích, trước khi tốn byte nào.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <h3>Câu trả lời gọn cho phỏng vấn</h3>
+    <p>
+      “Cả hai đều có optimizer làm những việc giống nhau — pushdown, cắt cột, gom hai lượt.
+      Khác biệt lớn nhất là <b>ai nắm quyền điều khiển và lấy thông tin từ đâu</b>.
+      BigQuery có thống kê đầy đủ nên chọn plan tốt ngay từ đầu, nhưng là hộp đen —
+      tôi chỉ chỉnh được câu SQL, cách partition và cách cluster.
+      Spark chạy trên data lake, thường không có thống kê, nên Catalyst bù lại bằng AQE:
+      đo kích thước shuffle thật rồi <b>sửa plan ngay giữa lúc chạy</b>. Đổi lại tôi phải
+      tự lo tài nguyên, và tôi can thiệp được vào từng tầng — hint, số shuffle partition,
+      broadcast threshold, thậm chí viết rule riêng cho Catalyst.
+      Nói ngắn gọn: BigQuery tối ưu cho <i>byte quét</i>, Spark tối ưu cho
+      <i>thời gian cụm chạy</i> — và điều đó dẫn tới hai cách viết query khác nhau.”
+    </p>
+
+    <h3>Tự kiểm tra — trả lời được hết là xong Ngày 5</h3>
+    <ol>
+      <li>Vì sao <code>GROUP BY</code> cần hai lượt <code>HashAggregate</code> mà không phải một?</li>
+      <li><code>Exchange</code> trong plan tương ứng với chuyện gì xảy ra trên cụm?</li>
+      <li>Vì sao gọi là <i>sort</i>-merge join — vai trò của bước <code>Sort</code> là gì?</li>
+      <li>Broadcast join bỏ qua được bước nào, và đánh đổi bằng gì?</li>
+      <li>Plan ghi <code>hashpartitioning(..., 200)</code> nhưng kết quả chỉ 5 partition. Ai đã làm việc đó?</li>
+      <li>Vì sao phải đổi tên <code>lpep_</code>/<code>tpep_</code> <b>trước khi</b> lấy tập cột chung?</li>
+      <li><code>coalesce(5)</code> và <code>repartition(5)</code> khác nhau ở đâu?</li>
+      <li>Một zone chiếm 40% tổng số chuyến thì sort-merge join gặp vấn đề gì?</li>
+    </ol>
+
+    <div class="panel note">
+      <p class="panel-label">Nối sang Ngày 6</p>
+      <p style="margin-bottom:0">
+        Hôm nay bạn đã thấy <i>dữ liệu đi đâu</i>. Ngày 6
+        (<code>08-anatomy-of-a-spark-cluster.md</code>) trả lời <i>ai chuyển nó</i>:
+        driver, executor, cluster manager. Hai câu hỏi để mang sang: cái
+        <code>Exchange</code> đó ghi dữ liệu ra <b>đĩa của executor</b> hay giữ trong RAM?
+        Và nếu một executor chết giữa lúc shuffle, Spark làm gì?
+      </p>
+    </div>
+  </div>
+</section>
+
+<p class="closing">
+  Lab Ngày 5 · module <code>06-batch</code> · data-engineering-zoomcamp<br>
+  Mọi con số đã kiểm chứng bằng một lần chạy thật: PySpark 4.2.0 · OpenJDK 17 ·
+  <code>local[*]</code> trên 10 core · dữ liệu green + yellow 2021/01–07.<br>
+  Tiếp theo: Ngày 6 — Spark Cluster Architecture + RDD.
+</p>
+
+</div>
