@@ -1,0 +1,1650 @@
+<title>Một script, ba nơi chạy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+:root {
+  /* nền + chữ — xám ngả xanh đá, không phải xám trung tính */
+  --paper:      #F1F3F6;
+  --surface:    #FFFFFF;
+  --surface-2:  #E6EAEF;
+  --ink:        #141922;
+  --ink-soft:   #39414E;
+  --muted:      #67707D;
+  --rule:       #D7DCE3;
+  --rule-strong:#BAC2CC;
+
+  /* bốn vai trò trong cụm — màu mang nghĩa, không trang trí */
+  --driver:     #96561A;   /* driver: nơi gửi job đi */
+  --master:     #3B3A8F;   /* master: điều phối */
+  --executor:   #0B6A68;   /* executor: nơi chạy thật */
+  --store:      #4A5C72;   /* kho dữ liệu: S3/GCS/HDFS */
+  --alarm:      #A52742;   /* shuffle, lệch partition, bẫy */
+
+  --driver-bg:  #F6E9DC;
+  --master-bg:  #E6E5F6;
+  --executor-bg:#DCEDEC;
+  --store-bg:   #E3E8EF;
+  --alarm-bg:   #F7E3E8;
+
+  --code-bg:    #151A22;
+  --code-fg:    #E4E8ED;
+  --code-dim:   #7C8795;
+  --code-key:   #8FD0C4;
+  --code-str:   #E0B07C;
+  --code-note:  #6F7C8B;
+
+  --display: "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #10141A;
+    --surface:    #171C24;
+    --surface-2:  #1F2630;
+    --ink:        #E7EBF0;
+    --ink-soft:   #C0C7D1;
+    --muted:      #8B94A1;
+    --rule:       #28303A;
+    --rule-strong:#3A4452;
+
+    --driver:     #E4A165;
+    --master:     #9D9AF2;
+    --executor:   #4CC3BB;
+    --store:      #9BB1C9;
+    --alarm:      #F07A90;
+
+    --driver-bg:  #32210F;
+    --master-bg:  #221F3F;
+    --executor-bg:#0F2E2D;
+    --store-bg:   #1B2733;
+    --alarm-bg:   #381825;
+
+    --code-bg:    #0B0E13;
+    --code-fg:    #E4E8ED;
+    --code-dim:   #6E7988;
+    --code-key:   #8FD0C4;
+    --code-str:   #E0B07C;
+    --code-note:  #626E7C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #10141A;
+  --surface:    #171C24;
+  --surface-2:  #1F2630;
+  --ink:        #E7EBF0;
+  --ink-soft:   #C0C7D1;
+  --muted:      #8B94A1;
+  --rule:       #28303A;
+  --rule-strong:#3A4452;
+
+  --driver:     #E4A165;
+  --master:     #9D9AF2;
+  --executor:   #4CC3BB;
+  --store:      #9BB1C9;
+  --alarm:      #F07A90;
+
+  --driver-bg:  #32210F;
+  --master-bg:  #221F3F;
+  --executor-bg:#0F2E2D;
+  --store-bg:   #1B2733;
+  --alarm-bg:   #381825;
+
+  --code-bg:    #0B0E13;
+  --code-fg:    #E4E8ED;
+  --code-dim:   #6E7988;
+  --code-key:   #8FD0C4;
+  --code-str:   #E0B07C;
+  --code-note:  #626E7C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17.5px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+/* ---------- mở đầu ---------- */
+
+.masthead {
+  padding: 76px 0 36px;
+  border-bottom: 2px solid var(--ink);
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.masthead h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(42px, 8vw, 78px);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  margin: 0 0 24px;
+  text-wrap: balance;
+}
+.standfirst {
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: 0 0 30px;
+}
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.meta-strip b { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- bước ---------- */
+
+.step {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 0 28px;
+  padding: 54px 0 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.step-no {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--rule-strong);
+  letter-spacing: -0.02em;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+.step-kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.step h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(27px, 4vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.step h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: -0.005em;
+  margin: 34px 0 12px;
+}
+
+.prose { max-width: var(--measure); }
+.prose p { margin: 0 0 16px; }
+.prose ul, .prose ol { max-width: var(--measure); padding-left: 22px; margin: 0 0 18px; }
+.prose li { margin-bottom: 9px; }
+.prose b, .prose strong { font-weight: 600; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.87em;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0.1em 0.34em;
+}
+
+.step-aim {
+  background: var(--surface);
+  border-left: 3px solid var(--ink);
+  padding: 14px 18px;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+  font-size: 16.5px;
+}
+.step-aim b {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ---------- code + output ---------- */
+
+.code, .out {
+  margin: 0 0 22px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.code { background: var(--code-bg); }
+.code-head, .out-head {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  text-transform: uppercase;
+}
+.code-head {
+  background: rgba(255,255,255,0.06);
+  color: var(--code-dim);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.code pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--code-fg);
+}
+.code .k { color: var(--code-key); }
+.code .s { color: var(--code-str); }
+.code .c { color: var(--code-note); font-style: italic; }
+
+.out {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.out-head {
+  background: var(--surface-2);
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+}
+.out pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.out .hl { color: var(--ink); font-weight: 600; }
+.out .dim { color: var(--muted); }
+.out .bad { color: var(--alarm); font-weight: 600; }
+.out .good { color: var(--executor); font-weight: 600; }
+
+/* ---------- bảng ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 0 24px; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  text-align: left;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--rule-strong);
+}
+td.num { text-align: right; padding-right: 22px; font-family: var(--mono); font-size: 13.5px; }
+th.num { text-align: right; padding-right: 22px; }
+
+/* ---------- panel ---------- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  padding: 16px 20px;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+  font-size: 16.5px;
+}
+.panel p { margin: 0 0 12px; }
+.panel p:last-child { margin-bottom: 0; }
+.panel-label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px !important;
+  color: var(--muted);
+}
+.panel.warn { border-left-color: var(--alarm); background: var(--alarm-bg); }
+.panel.warn .panel-label { color: var(--alarm); }
+.panel.note { border-left-color: var(--master); background: var(--master-bg); }
+.panel.note .panel-label { color: var(--master); }
+.panel.ask { border-left-color: var(--executor); background: var(--executor-bg); }
+.panel.ask .panel-label { color: var(--executor); }
+
+/* ---------- chip màu vai trò ---------- */
+
+.chip {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  padding: 0.14em 0.5em;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.chip.d { background: var(--driver-bg); color: var(--driver); }
+.chip.m { background: var(--master-bg); color: var(--master); }
+.chip.e { background: var(--executor-bg); color: var(--executor); }
+.chip.st { background: var(--store-bg); color: var(--store); }
+.chip.a { background: var(--alarm-bg); color: var(--alarm); }
+
+/* ---------- sơ đồ ---------- */
+
+.fig {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 22px 20px 16px;
+  margin: 0 0 24px;
+  overflow-x: auto;
+}
+.fig svg { display: block; min-width: 620px; width: 100%; height: auto; }
+.fig-cap {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 0;
+  line-height: 1.55;
+}
+.svg-label { font-family: var(--display); font-weight: 600; font-size: 15px; }
+.svg-sub { font-family: var(--mono); font-size: 11px; }
+.svg-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; }
+
+/* ---------- biểu đồ thanh ---------- */
+
+.bars { margin: 0 0 24px; max-width: 640px; }
+.bar-row {
+  display: grid;
+  grid-template-columns: 112px 1fr 76px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 9px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.bar-label { color: var(--ink-soft); }
+.bar-track { background: var(--surface-2); border-radius: 2px; height: 20px; }
+.bar-fill { height: 20px; border-radius: 2px; }
+.bar-val { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- checkpoint ---------- */
+
+.checkpoint {
+  margin-top: 60px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 34px 32px;
+  background: var(--surface);
+}
+.checkpoint h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 32px;
+  margin: 0 0 8px;
+}
+.qa { max-width: var(--measure); margin-bottom: 22px; }
+.qa > p { margin: 0 0 8px; }
+.q {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+}
+.a { color: var(--ink-soft); }
+
+details {
+  border-top: 1px solid var(--rule);
+  padding: 12px 0;
+  max-width: var(--measure);
+}
+summary {
+  cursor: pointer;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▸ "; color: var(--muted); }
+details[open] summary::before { content: "▾ "; }
+summary:focus-visible { outline: 2px solid var(--master); outline-offset: 3px; }
+.details-body { padding: 12px 0 4px 18px; color: var(--ink-soft); }
+
+.closing {
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 2px solid var(--ink);
+  max-width: var(--measure);
+  color: var(--ink-soft);
+}
+
+@media (max-width: 680px) {
+  .step { grid-template-columns: 1fr; gap: 0; }
+  .step-no { position: static; font-size: 32px; margin-bottom: 8px; }
+  .bar-row { grid-template-columns: 92px 1fr 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ---------- bổ sung Ngày 7 ---------- */
+
+.code .add { color: var(--code-key); }
+.code .del { color: #E58A9C; text-decoration: line-through; text-decoration-color: rgba(229,138,156,0.5); }
+
+.compare {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin: 0 0 24px;
+}
+.compare > div {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 14px 18px;
+  font-size: 16px;
+}
+.compare h4 {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+.compare p { margin: 0 0 8px; }
+.compare p:last-child { margin-bottom: 0; }
+
+.checklist { list-style: none; padding: 0; margin: 20px 0 30px; max-width: var(--measure); }
+.checklist li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.checklist li::before {
+  content: "";
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--ink-soft);
+  border-radius: 3px;
+  margin-top: 6px;
+}
+
+.toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 22px 0 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.toc a {
+  color: var(--ink-soft);
+  text-decoration: none;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  padding: 3px 9px;
+}
+.toc a:hover { border-color: var(--ink); color: var(--ink); }
+.toc a:focus-visible { outline: 2px solid var(--master); outline-offset: 2px; }
+.toc .t { color: var(--muted); }
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Ngày 7 · Module 06-batch · Spark + Cloud + Hadoop/YARN</p>
+  <h1>Một script,<br>ba nơi chạy</h1>
+  <p class="standfirst">
+    Ngày 6 bạn đã mổ xẻ cụm Spark nhưng vẫn chạy trên <code>local[*]</code>. Hôm nay giữ nguyên
+    job doanh thu của Ngày 5 và chỉ đổi <strong>chỗ đọc dữ liệu</strong>, <strong>chỗ chạy</strong>
+    và <strong>chỗ ghi kết quả</strong>: đọc từ Google Cloud Storage, chạy trên YARN, ghi thẳng vào
+    BigQuery. Code xử lý gần như không đổi. Thứ thay đổi là cấu hình đi kèm khi submit job.
+  </p>
+  <div class="meta-strip">
+    <span><b>Sáng:</b> 13-connecting-to-google-cloud-storage → 16-connecting-spark-to-bigquery</span>
+    <span><b>Chiều:</b> setup/hadoop-yarn.md</span>
+    <span><b>Máy bạn:</b> PySpark 4.2.0 · Scala 2.13 · Hadoop client 3.5.0 · Java 17</span>
+    <span><b>GCP:</b> project de-zoomcamp-500308 · bucket de-zoomcamp-500308-nytaxi (US) · dataset nytaxi (US)</span>
+  </div>
+  <nav class="toc" aria-label="Mục lục">
+    <a href="#s0"><span class="t">00</span> Bức tranh</a>
+    <a href="#s1"><span class="t">01</span> Connector</a>
+    <a href="#s2"><span class="t">02</span> Xác thực</a>
+    <a href="#s3"><span class="t">03</span> Đọc GCS</a>
+    <a href="#s4"><span class="t">04</span> Ghi BigQuery</a>
+    <a href="#s5"><span class="t">05</span> Job → BQ</a>
+    <a href="#s6"><span class="t">06</span> YARN là gì</a>
+    <a href="#s7"><span class="t">07</span> Dựng YARN</a>
+    <a href="#s8"><span class="t">08</span> Submit lên YARN</a>
+    <a href="#s9"><span class="t">09</span> Dataproc</a>
+    <a href="#loi">Bảng lỗi</a>
+    <a href="#check">Checkpoint</a>
+  </nav>
+</header>
+
+<!-- ============================================================ 00 -->
+<section class="step" id="s0">
+  <div class="step-no">00</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 10 phút</p>
+    <h2>Hôm nay chỉ đổi ba thứ, logic giữ nguyên</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Nói được job Spark gồm hai phần: <em>logic</em> (đọc → union → group by → join)
+      và <em>môi trường</em> (dữ liệu ở đâu, ai cấp máy, ghi đi đâu). Hôm nay chỉ đụng vào phần thứ hai.
+    </div>
+
+    <div class="fig">
+      <svg viewBox="0 0 880 330" role="img" aria-label="Ba trục thay đổi: lưu trữ từ ổ đĩa local sang GCS, nơi chạy từ local sang YARN rồi Dataproc, đầu ra từ parquet sang BigQuery">
+        <!-- cột tiêu đề -->
+        <text x="20" y="30" class="svg-tag" fill="var(--muted)">TRỤC</text>
+        <text x="200" y="30" class="svg-tag" fill="var(--muted)">NGÀY 4–6</text>
+        <text x="470" y="30" class="svg-tag" fill="var(--muted)">NGÀY 7</text>
+
+        <!-- hàng 1: lưu trữ -->
+        <text x="20" y="84" class="svg-label" fill="var(--ink)">Đọc từ đâu</text>
+        <rect x="200" y="58" width="200" height="44" rx="4" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+        <text x="216" y="85" class="svg-sub" fill="var(--ink-soft)">data/pq/… (ổ đĩa Mac)</text>
+        <line x1="404" y1="80" x2="462" y2="80" stroke="var(--muted)" stroke-width="1.5"/>
+        <path d="M462 75 L470 80 L462 85 Z" fill="var(--muted)"/>
+        <rect x="470" y="58" width="380" height="44" rx="4" fill="var(--store-bg)" stroke="var(--store)" stroke-width="1.5"/>
+        <text x="486" y="85" class="svg-sub" fill="var(--store)">gs://de-zoomcamp-500308-nytaxi/pq/…</text>
+
+        <!-- hàng 2: nơi chạy -->
+        <text x="20" y="164" class="svg-label" fill="var(--ink)">Chạy ở đâu</text>
+        <rect x="200" y="138" width="200" height="44" rx="4" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+        <text x="216" y="165" class="svg-sub" fill="var(--ink-soft)">local[*] (1 tiến trình)</text>
+        <line x1="404" y1="160" x2="462" y2="160" stroke="var(--muted)" stroke-width="1.5"/>
+        <path d="M462 155 L470 160 L462 165 Z" fill="var(--muted)"/>
+        <rect x="470" y="138" width="180" height="44" rx="4" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.5"/>
+        <text x="486" y="165" class="svg-sub" fill="var(--master)">YARN trên Mac</text>
+        <line x1="654" y1="160" x2="662" y2="160" stroke="var(--muted)" stroke-width="1.5"/>
+        <rect x="670" y="138" width="180" height="44" rx="4" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="686" y="165" class="svg-sub" fill="var(--master)">Dataproc (tùy chọn)</text>
+
+        <!-- hàng 3: ghi ra -->
+        <text x="20" y="244" class="svg-label" fill="var(--ink)">Ghi ra đâu</text>
+        <rect x="200" y="218" width="200" height="44" rx="4" fill="var(--surface-2)" stroke="var(--rule-strong)"/>
+        <text x="216" y="245" class="svg-sub" fill="var(--ink-soft)">data/report/ (parquet)</text>
+        <line x1="404" y1="240" x2="462" y2="240" stroke="var(--muted)" stroke-width="1.5"/>
+        <path d="M462 235 L470 240 L462 245 Z" fill="var(--muted)"/>
+        <rect x="470" y="218" width="380" height="44" rx="4" fill="var(--store-bg)" stroke="var(--store)" stroke-width="1.5"/>
+        <text x="486" y="245" class="svg-sub" fill="var(--store)">BigQuery: nytaxi.daily_zone_revenue</text>
+
+        <text x="20" y="304" class="svg-sub" fill="var(--muted)">Logic không đổi: read → withColumnRenamed → unionAll → GROUP BY → broadcast join → write</text>
+      </svg>
+      <p class="fig-cap">Mỗi trục ứng với một bài: GCS (bài 13), YARN và Dataproc (bài 14–15 + hadoop-yarn.md), BigQuery (bài 16).</p>
+    </div>
+
+    <div class="prose">
+      <p>
+        Ba khái niệm đi xuyên suốt cả ngày:
+      </p>
+      <ul>
+        <li>
+          <b>Connector</b>: Spark không tự biết nói chuyện với GCS hay BigQuery. Bạn phải đưa cho nó
+          một file <code>.jar</code> (thư viện Java) biết cách làm việc đó.
+        </li>
+        <li>
+          <b>Cluster manager</b>: thành phần cấp CPU/RAM cho executor. Hôm qua là <code>local[*]</code>;
+          hôm nay là <b>YARN</b>, cluster manager của hệ Hadoop. Dataproc của Google cũng là YARN,
+          chỉ khác là Google dựng hộ.
+        </li>
+        <li>
+          <b>Cấu hình nằm ngoài code</b>: <code>--master</code>, jar, thông tin đăng nhập đều truyền
+          qua <code>spark-submit</code>. Nhờ vậy cùng một file <code>.py</code> chạy được ở cả ba nơi.
+        </li>
+      </ul>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Cách dùng tài liệu này</p>
+      <p>
+        Mỗi bước có <b>mục tiêu</b> → <b>lệnh để tự gõ</b> → <b>kết quả mong đợi</b>. Lệnh và phiên bản
+        đã được chọn theo đúng máy bạn (đã kiểm tra jar có trong PySpark, bucket, dataset, các bản
+        connector đang có). Phần lớn lệnh <b>chưa được chạy thử</b> vì chúng ghi lên GCP của bạn, nên
+        các khung output là thứ <em>nên thấy</em>. Riêng số dòng (570.466 và 91.280) là số đã đo ở Ngày 5
+        trên cùng dữ liệu.
+      </p>
+      <p style="margin-bottom:0">
+        Làm việc trong <code>06-batch/practice/</code>, và nhớ <code>source env.sh</code> trước mỗi buổi.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 01 -->
+<section class="step" id="s1">
+  <div class="step-no">01</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 15 phút · bài 13</p>
+    <h2>Vì sao Spark không đọc được <code>gs://</code></h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Giải thích được câu “Spark đọc file qua Hadoop FileSystem” và chọn đúng
+      phiên bản jar cho máy mình.
+    </div>
+
+    <div class="prose">
+      <p>
+        Spark không tự đọc file. Mỗi lần bạn gọi <code>spark.read.parquet(path)</code>, Spark nhìn
+        <b>phần đầu của đường dẫn</b> (scheme) rồi hỏi tầng Hadoop: “scheme này dùng class nào để đọc?”.
+        Giống như máy tính cần driver mới đọc được một loại USB lạ.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Đường dẫn</th><th>Class xử lý</th><th>Có sẵn trong PySpark?</th></tr></thead>
+        <tbody>
+          <tr><td><code>data/pq/…</code> hoặc <code>file:///…</code></td><td><code>LocalFileSystem</code></td><td>Có</td></tr>
+          <tr><td><code>hdfs://…</code></td><td><code>DistributedFileSystem</code></td><td>Có (hadoop-client)</td></tr>
+          <tr><td><code>gs://…</code></td><td><code>GoogleHadoopFileSystem</code></td><td><b>Không</b>, cần <code>gcs-connector.jar</code></td></tr>
+          <tr><td><code>s3a://…</code></td><td><code>S3AFileSystem</code></td><td><b>Không</b>, cần <code>hadoop-aws.jar</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        Tên “Cloud Storage connector <em>for Hadoop</em>” làm nhiều người tưởng phải cài Hadoop.
+        Không cần. PySpark đã gói sẵn thư viện client của Hadoop (trên máy bạn là
+        <code>hadoop-client-api-3.5.0.jar</code>); connector chỉ cắm thêm một “ổ” mới vào đó.
+      </p>
+      <p>
+        BigQuery thì khác: nó không phải hệ thống file mà là kho dữ liệu, nên connector BigQuery
+        cắm vào <b>DataSource API</b> của Spark. Bạn dùng nó bằng <code>format("bigquery")</code>,
+        giống <code>format("parquet")</code>.
+      </p>
+    </div>
+
+    <h3>Phiên bản: video khóa học dùng bản cũ, máy bạn cần bản khác</h3>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Thành phần</th><th>Video khóa học</th><th>Máy bạn nên dùng</th><th>Lý do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>GCS connector</td>
+            <td><code>gcs-connector-hadoop3-2.2.5.jar</code></td>
+            <td><code>gcs-connector-3.1.9.jar</code></td>
+            <td>Dòng 3.x viết cho Java 11+ và Hadoop 3.3+; 2.2.x đã ngừng phát triển</td>
+          </tr>
+          <tr>
+            <td>BigQuery connector</td>
+            <td><code>spark-bigquery-latest_2.12.jar</code></td>
+            <td><code>spark-4.0-bigquery:0.46.0</code></td>
+            <td>Spark 4 dùng Scala 2.13. Jar <code>_2.12</code> sẽ chết với <code>NoSuchMethodError</code></td>
+          </tr>
+          <tr>
+            <td>Hadoop (cho YARN)</td>
+            <td>3.2.3</td>
+            <td>3.5.0</td>
+            <td>Khớp client 3.5.0 trong PySpark; từ 3.5 phía server <b>bắt buộc</b> Java 17, đúng bản bạn đang có</td>
+          </tr>
+          <tr>
+            <td>Xác thực</td>
+            <td>File key service account</td>
+            <td>Application Default Credentials</td>
+            <td>Máy bạn chưa có file key; ADC dùng chính tài khoản <code>gcloud</code> (bước 02)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Đuôi _2.12 / _2.13 là gì</p>
+      <p>
+        Đó là phiên bản <b>Scala</b> mà jar được biên dịch. Scala 2.12 và 2.13 không tương thích nhị phân.
+        Spark 3.x đa số dùng 2.12, Spark 4.x chỉ còn 2.13. Mỗi khi chép lệnh <code>--packages</code> từ
+        tutorial, kiểm tra đuôi này trước tiên. Kiểm tra máy mình:
+        <code>ls .venv/lib/python3.13/site-packages/pyspark/jars | grep scala-library</code>
+        → <code>scala-library-2.13.18.jar</code>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 02 -->
+<section class="step" id="s2">
+  <div class="step-no">02</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành · 10 phút</p>
+    <h2>Cho Spark mượn quyền GCP của bạn</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Có file <code>application_default_credentials.json</code> để cả GCS connector lẫn
+      BigQuery connector tự tìm thấy, không phải ghi đường dẫn key vào code.
+    </div>
+
+    <div class="prose">
+      <p>
+        Có hai cách cho một chương trình quyền truy cập GCP:
+      </p>
+    </div>
+
+    <div class="compare">
+      <div>
+        <h4 style="color:var(--driver)">File key service account</h4>
+        <p>Cách video dùng. Một file JSON chứa khóa bí mật của một tài khoản máy.</p>
+        <p style="color:var(--muted)">Lộ file là lộ quyền. Google khuyên hạn chế tạo key.</p>
+      </div>
+      <div>
+        <h4 style="color:var(--executor)">ADC (Application Default Credentials)</h4>
+        <p>Thư viện Google tự tìm thông tin đăng nhập theo thứ tự có sẵn. Trên laptop, nó dùng tài khoản bạn đã đăng nhập <code>gcloud</code>.</p>
+        <p style="color:var(--muted)">Trên Dataproc, nó tự dùng service account của VM. Code không đổi.</p>
+      </div>
+    </div>
+
+    <div class="code">
+      <div class="code-head">Terminal</div>
+<pre><span class="c"># mở trình duyệt để đăng nhập, rồi lưu thông tin cho thư viện dùng</span>
+gcloud auth application-default login
+
+<span class="c"># ADC bằng tài khoản người dùng cần biết tính quota vào project nào</span>
+gcloud auth application-default set-quota-project de-zoomcamp-500308
+
+ls ~/.config/gcloud/application_default_credentials.json</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>Credentials saved to file: [<span class="hl">~/.config/gcloud/application_default_credentials.json</span>]
+...
+Quota project "de-zoomcamp-500308" was added to ADC ...</pre>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Phân biệt hai lệnh login</p>
+      <p>
+        <code>gcloud auth login</code> cho <b>CLI</b> (<code>gcloud</code>, <code>gsutil</code>, <code>bq</code>) quyền chạy.
+        <code>gcloud auth application-default login</code> cho <b>chương trình bạn viết</b> (Spark, Python) quyền chạy.
+        Máy bạn đã có cái thứ nhất nhưng chưa có cái thứ hai, nên <code>gsutil ls</code> chạy được mà Spark vẫn báo 401.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 03 -->
+<section class="step" id="s3">
+  <div class="step-no">03</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành · 30 phút · bài 13</p>
+    <h2>Đẩy parquet lên GCS, rồi đọc lại bằng Spark local</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — <code>spark.read.parquet("gs://…")</code> đếm ra đúng <b>570.466</b> dòng green,
+      giống hệt khi đọc từ ổ đĩa ở Ngày 5.
+    </div>
+
+    <h3>3a. Upload dữ liệu</h3>
+    <div class="code">
+      <div class="code-head">Terminal · 06-batch/practice</div>
+<pre>BUCKET=de-zoomcamp-500308-nytaxi
+
+<span class="c"># green 16 MB + yellow 392 MB. gcloud storage tự chạy song song,</span>
+<span class="c"># giống gsutil -m trong video</span>
+gcloud storage cp -r data/pq/green data/pq/yellow gs://$BUCKET/pq/
+
+<span class="c"># bảng tra vùng — cần khi chạy trên Dataproc (bước 09)</span>
+gcloud storage cp data/raw/zones/taxi_zone_lookup.csv gs://$BUCKET/zones/
+
+gcloud storage ls gs://$BUCKET/pq/green/2021/</pre>
+    </div>
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>gs://de-zoomcamp-500308-nytaxi/pq/green/2021/01/
+...
+gs://de-zoomcamp-500308-nytaxi/pq/green/2021/07/
+gs://de-zoomcamp-500308-nytaxi/pq/green/2021/<span class="dim">08/   ← thư mục rác từ Ngày 4, 0 dòng, vô hại</span></pre>
+    </div>
+
+    <h3>3b. Tải connector</h3>
+    <div class="code">
+      <div class="code-head">Terminal · 06-batch/practice</div>
+<pre>mkdir -p lib
+gcloud storage cp gs://hadoop-lib/gcs/gcs-connector-3.1.9.jar lib/</pre>
+    </div>
+
+    <h3>3c. Script đọc thử: <code>10_gcs_read.py</code></h3>
+    <div class="code">
+      <div class="code-head">10_gcs_read.py</div>
+<pre>import os, sys
+os.environ.setdefault(<span class="s">"PYSPARK_PYTHON"</span>, sys.executable)
+from pyspark.sql import SparkSession
+
+BUCKET = <span class="s">"de-zoomcamp-500308-nytaxi"</span>
+
+spark = (
+    SparkSession.builder
+    .appName(<span class="s">"ngay7-gcs"</span>)
+    <span class="c"># 1. đưa jar cho Spark</span>
+    .config(<span class="s">"spark.jars"</span>, <span class="s">"lib/gcs-connector-3.1.9.jar"</span>)
+    <span class="c"># 2. dạy Hadoop: gặp gs:// thì dùng class nào</span>
+    .config(<span class="s">"spark.hadoop.fs.gs.impl"</span>,
+            <span class="s">"com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem"</span>)
+    .config(<span class="s">"spark.hadoop.fs.AbstractFileSystem.gs.impl"</span>,
+            <span class="s">"com.google.cloud.hadoop.fs.gcs.GoogleHadoopFS"</span>)
+    <span class="c"># 3. đăng nhập bằng ADC ở bước 02</span>
+    .config(<span class="s">"spark.hadoop.fs.gs.auth.type"</span>, <span class="s">"APPLICATION_DEFAULT"</span>)
+    .config(<span class="s">"spark.hadoop.fs.gs.project.id"</span>, <span class="s">"de-zoomcamp-500308"</span>)
+    .getOrCreate()
+)
+spark.sparkContext.setLogLevel(<span class="s">"ERROR"</span>)
+
+df = spark.read.parquet(f<span class="s">"gs://{BUCKET}/pq/green/2021/*"</span>)
+print(<span class="s">"green đọc từ GCS:"</span>, df.count())
+
+<span class="c"># ghi thử một bảng nhỏ ngược lên bucket</span>
+(df.groupBy(<span class="s">"PULocationID"</span>).count()
+   .write.mode(<span class="s">"overwrite"</span>)
+   .parquet(f<span class="s">"gs://{BUCKET}/report/ngay7_test"</span>))
+print(<span class="s">"đã ghi gs://…/report/ngay7_test"</span>)
+spark.stop()</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">python 10_gcs_read.py · kết quả mong đợi</div>
+<pre>green đọc từ GCS: <span class="good">570466</span>
+đã ghi gs://…/report/ngay7_test</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Tiền tố <code>spark.hadoop.</code></b> là cách gọn để set cấu hình Hadoop. Spark cắt tiền tố đó
+        rồi chuyển phần còn lại xuống Hadoop. Video viết dài hơn bằng
+        <code>sc._jsc.hadoopConfiguration().set("fs.gs.impl", …)</code>; hai cách cho cùng kết quả,
+        nhưng cách <code>spark.hadoop.*</code> còn truyền được bằng <code>--conf</code> lúc submit,
+        thứ bạn sẽ cần ở bước 05.
+      </p>
+      <p>
+        Trong video, <code>fs.gs.auth.service.account.enable</code> và
+        <code>…json.keyfile</code> là khóa của connector 2.x. Connector 3.x đổi thành một khóa
+        <code>fs.gs.auth.type</code> (giá trị <code>APPLICATION_DEFAULT</code>,
+        <code>SERVICE_ACCOUNT_JSON_KEYFILE</code>, …). Chép cấu hình cũ sang jar mới thì connector
+        lặng lẽ bỏ qua và báo lỗi xác thực.
+      </p>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Tự thử</p>
+      <p>
+        Comment dòng <code>spark.jars</code> rồi chạy lại. Lỗi bạn nhận được sẽ là
+        <code>No FileSystem for scheme "gs"</code>, chính là “thiếu driver”. Nhớ mặt lỗi này,
+        vì sang Dataproc với S3 hay Azure bạn sẽ gặp nó dưới tên khác.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 04 -->
+<section class="step" id="s4">
+  <div class="step-no">04</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 15 phút · bài 16</p>
+    <h2>Spark ghi vào BigQuery bằng hai đường</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Biết vì sao video phải cấu hình <code>temporaryGcsBucket</code>, và khi nào
+      không cần.
+    </div>
+
+    <div class="fig">
+      <svg viewBox="0 0 880 270" role="img" aria-label="Hai cách ghi BigQuery: indirect qua bucket tạm rồi load job, direct qua Storage Write API">
+        <!-- executors -->
+        <rect x="16" y="90" width="150" height="90" rx="5" fill="var(--executor-bg)" stroke="var(--executor)" stroke-width="1.5"/>
+        <text x="32" y="122" class="svg-label" fill="var(--executor)">EXECUTOR</text>
+        <text x="32" y="144" class="svg-sub" fill="var(--executor)">mỗi task giữ</text>
+        <text x="32" y="160" class="svg-sub" fill="var(--executor)">một partition</text>
+
+        <!-- indirect -->
+        <text x="200" y="34" class="svg-tag" fill="var(--muted)">INDIRECT (mặc định, video dùng)</text>
+        <path d="M166 120 C 200 120, 200 70, 236 70" fill="none" stroke="var(--store)" stroke-width="1.5"/>
+        <path d="M228 65 L236 70 L228 75 Z" fill="var(--store)"/>
+        <rect x="240" y="48" width="230" height="44" rx="4" fill="var(--store-bg)" stroke="var(--store)" stroke-width="1.5"/>
+        <text x="254" y="68" class="svg-sub" fill="var(--store)">bucket tạm trên GCS</text>
+        <text x="254" y="84" class="svg-sub" fill="var(--store)">ghi parquet/avro</text>
+        <line x1="470" y1="70" x2="580" y2="70" stroke="var(--store)" stroke-width="1.5"/>
+        <path d="M572 65 L580 70 L572 75 Z" fill="var(--store)"/>
+        <text x="484" y="60" class="svg-sub" fill="var(--muted)">load job</text>
+
+        <!-- direct -->
+        <text x="200" y="250" class="svg-tag" fill="var(--muted)">DIRECT (writeMethod=direct)</text>
+        <path d="M166 150 C 200 150, 200 210, 236 210" fill="none" stroke="var(--master)" stroke-width="1.5"/>
+        <path d="M228 205 L236 210 L228 215 Z" fill="var(--master)"/>
+        <rect x="240" y="188" width="230" height="44" rx="4" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.5"/>
+        <text x="254" y="208" class="svg-sub" fill="var(--master)">BigQuery Storage</text>
+        <text x="254" y="224" class="svg-sub" fill="var(--master)">Write API (gRPC)</text>
+        <path d="M470 210 C 530 210, 540 150, 580 150" fill="none" stroke="var(--master)" stroke-width="1.5"/>
+        <path d="M572 145 L580 150 L572 155 Z" fill="var(--master)"/>
+
+        <!-- table -->
+        <rect x="584" y="48" width="280" height="122" rx="5" fill="var(--surface-2)" stroke="var(--ink-soft)" stroke-width="1.5"/>
+        <text x="600" y="80" class="svg-label" fill="var(--ink)">BẢNG BIGQUERY</text>
+        <text x="600" y="104" class="svg-sub" fill="var(--ink-soft)">nytaxi.daily_zone_revenue</text>
+        <text x="600" y="124" class="svg-sub" fill="var(--muted)">tự tạo nếu chưa có</text>
+        <text x="600" y="144" class="svg-sub" fill="var(--muted)">schema lấy từ DataFrame</text>
+      </svg>
+      <p class="fig-cap">Indirect cần bucket tạm cùng location với dataset (đều là US ở máy bạn). Direct không cần bucket nhưng tính phí Storage Write API theo dung lượng.</p>
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Indirect</b> là cách cổ điển: các executor ghi file vào bucket tạm (song song, nhanh), rồi
+        connector gọi một <b>load job</b> của BigQuery để nạp cả thư mục vào bảng. Load job miễn phí,
+        nên đây là lựa chọn rẻ cho dữ liệu lớn. Vì đi qua GCS, cách này cũng dùng tới GCS connector
+        của bước 03.
+      </p>
+      <p>
+        <b>Direct</b> bỏ qua bucket, đẩy dòng thẳng vào BigQuery. Ít cấu hình hơn, hợp với job nhỏ.
+      </p>
+      <p>
+        Bài 16 dùng indirect, bạn cũng dùng indirect để học đúng luồng của video, và lấy luôn bucket
+        dữ liệu làm bucket tạm. Connector tự xóa file tạm sau khi load xong.
+      </p>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Location phải khớp</p>
+      <p>
+        Load job chỉ đọc được bucket <b>cùng location</b> với dataset. Bucket
+        <code>de-zoomcamp-500308-nytaxi</code> và dataset <code>nytaxi</code> của bạn đều ở <b>US</b>,
+        nên không vướng. Nếu sau này tạo dataset ở <code>asia-southeast1</code> mà bucket ở US,
+        job sẽ chết ở bước load với lỗi <code>Cannot read and write in different locations</code>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 05 -->
+<section class="step" id="s5">
+  <div class="step-no">05</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành · 40 phút · bài 14 + 16</p>
+    <h2>Biến job Ngày 5 thành job “cloud-ready”</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Bảng <code>nytaxi.daily_zone_revenue</code> xuất hiện trong BigQuery với
+      <b>91.280</b> dòng (đúng số Ngày 5 đo khi chia ngày theo giờ New York).
+    </div>
+
+    <div class="prose">
+      <p>
+        Chép <code>06_daily_zone_revenue.py</code> thành <code>10_revenue_cloud.py</code> rồi sửa đúng
+        ba chỗ. Không sửa dòng nào trong phần logic.
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">10_revenue_cloud.py · chỉ phần thay đổi</div>
+<pre><span class="c"># (1) tham số mới: ghi parquet hay ghi BigQuery</span>
+<span class="add">parser.add_argument('--format', default='parquet', choices=['parquet', 'bigquery'])</span>
+<span class="add">parser.add_argument('--temp_bucket', default='de-zoomcamp-500308-nytaxi')</span>
+
+<span class="c"># (2) BỎ master cứng. Để spark-submit quyết định chạy ở đâu.</span>
+spark = (
+    SparkSession.builder
+<span class="del">    .master("local[*]")</span>
+    .appName("daily-zone-revenue")
+    .getOrCreate()
+)
+
+<span class="c"># ... toàn bộ phần đọc / union / group by / join giữ nguyên ...</span>
+
+<span class="c"># (3) chỗ ghi</span>
+<span class="add">if args.format == 'bigquery':</span>
+<span class="add">    (result.write.format('bigquery')</span>
+<span class="add">        .option('table', args.output)               # nytaxi.daily_zone_revenue</span>
+<span class="add">        .option('parentProject', 'de-zoomcamp-500308')</span>
+<span class="add">        .option('writeMethod', 'indirect')</span>
+<span class="add">        .option('temporaryGcsBucket', args.temp_bucket)</span>
+<span class="add">        .mode('overwrite')</span>
+<span class="add">        .save())</span>
+<span class="add">else:</span>
+    result.write.mode('overwrite').parquet(args.output)</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Vì sao phải bỏ .master("local[*]")</p>
+      <p>
+        Cấu hình đặt trong code <b>thắng</b> cấu hình truyền qua <code>spark-submit</code>. Giữ dòng đó thì
+        <code>spark-submit --master yarn</code> bị lờ đi: job vẫn chạy local, không báo lỗi, và không
+        hiện trên giao diện YARN. Bỏ dòng đó thì chạy <code>python 10_revenue_cloud.py</code> vẫn
+        mặc định là local, nên không mất gì.
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">Terminal · chạy local, đọc GCS, ghi BigQuery</div>
+<pre>source env.sh
+B=gs://de-zoomcamp-500308-nytaxi
+
+spark-submit \
+  --jars lib/gcs-connector-3.1.9.jar \
+  --packages com.google.cloud.spark:spark-4.0-bigquery:0.46.0 \
+  --conf spark.hadoop.fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem \
+  --conf spark.hadoop.fs.gs.auth.type=APPLICATION_DEFAULT \
+  --conf spark.hadoop.fs.gs.project.id=de-zoomcamp-500308 \
+  10_revenue_cloud.py \
+    --input_green  "$B/pq/green/2021/*" \
+    --input_yellow "$B/pq/yellow/2021/*" \
+    --zones        "$B/zones/taxi_zone_lookup.csv" \
+    --timezone     America/New_York \
+    --format       bigquery \
+    --output       nytaxi.daily_zone_revenue</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Đọc lệnh theo đúng quy tắc của bài 14: <b>mọi thứ trước tên file <code>.py</code> là cấu hình cho
+        Spark</b>, mọi thứ sau là tham số cho job của bạn (đi vào <code>argparse</code>).
+      </p>
+      <ul>
+        <li><code>--jars</code>: jar có sẵn trên ổ đĩa.</li>
+        <li><code>--packages</code>: tọa độ Maven <code>nhóm:tên:phiên-bản</code>. Spark tự tải jar
+          cùng các thư viện phụ thuộc vào <code>~/.ivy2</code> ở lần chạy đầu (mất vài chục giây).</li>
+      </ul>
+    </div>
+
+    <div class="code">
+      <div class="code-head">Terminal · kiểm tra</div>
+<pre>bq query --use_legacy_sql=false \
+  'SELECT COUNT(*) AS n, ROUND(SUM(total_revenue)) AS rev FROM nytaxi.daily_zone_revenue'
+
+bq show --schema --format=prettyjson nytaxi.daily_zone_revenue | head -20</pre>
+    </div>
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre>+-------+-----+
+|   n   | rev |
++-------+-----+
+| <span class="good">91280</span> | ... |
++-------+-----+</pre>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Nếu spark-4.0-bigquery báo lỗi lạ</p>
+      <p>
+        Connector này ghi rõ hỗ trợ Spark 4.0; máy bạn là 4.2. Nếu gặp lỗi class/method lúc ghi, thay
+        tọa độ bằng bản “Scala 2.13 chung”:
+        <code>com.google.cloud.spark:spark-bigquery-with-dependencies_2.13:0.46.0</code>.
+        Muốn bỏ qua bucket tạm thì đổi <code>writeMethod</code> thành <code>direct</code> và xóa dòng
+        <code>temporaryGcsBucket</code>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 06 -->
+<section class="step" id="s6">
+  <div class="step-no">06</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 20 phút · hadoop-yarn.md</p>
+    <h2>YARN là “master” của thế giới Hadoop</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Ghép được từng hộp YARN vào sơ đồ bốn vai của Ngày 6, và biết driver nằm ở đâu
+      trong client mode và cluster mode.
+    </div>
+
+    <div class="prose">
+      <p>
+        Ngày 6 có bốn vai: <span class="chip d">driver</span> <span class="chip m">master</span>
+        <span class="chip e">executor</span> <span class="chip st">kho dữ liệu</span>. Vai
+        <span class="chip m">master</span> có thể do nhiều phần mềm đảm nhận: Spark standalone (bài 14),
+        Kubernetes, hoặc <b>YARN</b> (Yet Another Resource Negotiator). YARN ra đời trong Hadoop để
+        chia tài nguyên cụm cho nhiều loại job (MapReduce, Spark, Hive, Flink…). Dataproc, EMR và
+        hầu hết cụm Hadoop on-premise đều chạy Spark trên YARN.
+      </p>
+    </div>
+
+    <div class="fig">
+      <svg viewBox="0 0 880 380" role="img" aria-label="Spark trên YARN: spark-submit trên Mac chứa driver, ResourceManager cấp container, NodeManager chạy ApplicationMaster và các executor, executor đọc ghi GCS và BigQuery">
+        <!-- driver -->
+        <rect x="14" y="40" width="190" height="118" rx="5" fill="var(--driver-bg)" stroke="var(--driver)" stroke-width="1.5"/>
+        <text x="30" y="70" class="svg-label" fill="var(--driver)">DRIVER</text>
+        <text x="30" y="92" class="svg-sub" fill="var(--driver)">spark-submit trên Mac</text>
+        <text x="30" y="110" class="svg-sub" fill="var(--driver)">client mode</text>
+        <text x="30" y="134" class="svg-sub" fill="var(--driver)">Spark UI :4040</text>
+
+        <!-- RM -->
+        <rect x="290" y="40" width="250" height="84" rx="5" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.5"/>
+        <text x="306" y="70" class="svg-label" fill="var(--master)">RESOURCEMANAGER</text>
+        <text x="306" y="92" class="svg-sub" fill="var(--master)">1 cái cho cả cụm · UI :8088</text>
+        <text x="306" y="110" class="svg-sub" fill="var(--master)">quyết định ai được bao nhiêu RAM/CPU</text>
+
+        <line x1="204" y1="72" x2="282" y2="72" stroke="var(--driver)" stroke-width="1.5"/>
+        <path d="M282 67 L290 72 L282 77 Z" fill="var(--driver)"/>
+        <text x="212" y="64" class="svg-sub" fill="var(--muted)">1. xin app</text>
+
+        <!-- NM frame -->
+        <rect x="236" y="170" width="430" height="190" rx="6" fill="none" stroke="var(--rule-strong)" stroke-dasharray="5 5"/>
+        <text x="252" y="192" class="svg-tag" fill="var(--muted)">NODEMANAGER · 1 cái mỗi máy · UI :8042</text>
+
+        <line x1="415" y1="124" x2="415" y2="164" stroke="var(--master)" stroke-width="1.5"/>
+        <path d="M410 162 L415 170 L420 162 Z" fill="var(--master)"/>
+        <text x="424" y="150" class="svg-sub" fill="var(--muted)">2. cấp container</text>
+
+        <!-- AM -->
+        <rect x="254" y="208" width="130" height="64" rx="4" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.2"/>
+        <text x="266" y="232" class="svg-sub" fill="var(--master)">container</text>
+        <text x="266" y="252" class="svg-label" fill="var(--master)" style="font-size:13px">AppMaster</text>
+
+        <!-- executors -->
+        <rect x="400" y="208" width="120" height="64" rx="4" fill="var(--executor-bg)" stroke="var(--executor)" stroke-width="1.2"/>
+        <text x="412" y="232" class="svg-sub" fill="var(--executor)">container</text>
+        <text x="412" y="252" class="svg-label" fill="var(--executor)" style="font-size:13px">executor 1</text>
+        <rect x="532" y="208" width="120" height="64" rx="4" fill="var(--executor-bg)" stroke="var(--executor)" stroke-width="1.2"/>
+        <text x="544" y="232" class="svg-sub" fill="var(--executor)">container</text>
+        <text x="544" y="252" class="svg-label" fill="var(--executor)" style="font-size:13px">executor 2</text>
+        <text x="254" y="300" class="svg-sub" fill="var(--muted)">AppMaster: “quản đốc” riêng của app, xin thêm</text>
+        <text x="254" y="318" class="svg-sub" fill="var(--muted)">container cho executor thay mặt driver</text>
+        <text x="254" y="344" class="svg-sub" fill="var(--muted)">3. driver giao task thẳng cho executor</text>
+
+        <!-- driver → executors (task) -->
+        <path d="M110 158 C 110 250, 300 290, 400 262" fill="none" stroke="var(--driver)" stroke-width="1.2" stroke-dasharray="4 3"/>
+
+        <!-- store -->
+        <rect x="700" y="208" width="166" height="64" rx="5" fill="var(--store-bg)" stroke="var(--store)" stroke-width="1.5"/>
+        <text x="714" y="234" class="svg-label" fill="var(--store)">GCS · BigQuery</text>
+        <text x="714" y="256" class="svg-sub" fill="var(--store)">đọc / ghi dữ liệu</text>
+        <line x1="652" y1="240" x2="692" y2="240" stroke="var(--store)" stroke-width="1.5"/>
+        <path d="M692 235 L700 240 L692 245 Z" fill="var(--store)"/>
+      </svg>
+      <p class="fig-cap">Trên Mac, ResourceManager và NodeManager là hai tiến trình Java chạy cạnh nhau. Trên cụm thật: 1 ResourceManager + N NodeManager trên N máy.</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Vai Ngày 6</th><th>Spark standalone (bài 14)</th><th>YARN</th><th>Dataproc</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip m">master</span></td><td>Master · <code>:8080</code></td><td>ResourceManager · <code>:8088</code></td><td>YARN RM trên node master do Google dựng</td></tr>
+          <tr><td>máy làm việc</td><td>Worker</td><td>NodeManager</td><td>các node worker</td></tr>
+          <tr><td><span class="chip e">executor</span></td><td>tiến trình do Worker sinh</td><td>chạy trong <b>container</b></td><td>container YARN</td></tr>
+          <tr><td>URL <code>--master</code></td><td><code>spark://host:7077</code></td><td><code>yarn</code> (đọc địa chỉ từ <code>YARN_CONF_DIR</code>)</td><td>Dataproc tự set</td></tr>
+          <tr><td>Chạy được gì</td><td>chỉ Spark</td><td>Spark, MapReduce, Hive, Flink…</td><td>như YARN</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Client mode và cluster mode</h3>
+    <div class="compare">
+      <div>
+        <h4 style="color:var(--driver)">--deploy-mode client (mặc định)</h4>
+        <p>Driver chạy ngay trong terminal của bạn. <code>print()</code> và <code>show()</code> hiện tại chỗ.</p>
+        <p style="color:var(--muted)">Đóng terminal hoặc gập laptop là job chết. Hợp để học và debug.</p>
+      </div>
+      <div>
+        <h4 style="color:var(--master)">--deploy-mode cluster</h4>
+        <p>Driver chạy <b>bên trong</b> container AppMaster trên cụm. Terminal chỉ còn theo dõi trạng thái.</p>
+        <p style="color:var(--muted)">Output nằm trong log YARN. Đây là cách Airflow/production submit.</p>
+      </div>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Container là gì</p>
+      <p>
+        Trong YARN, “container” là <b>một suất tài nguyên</b> (ví dụ 3 GB RAM + 2 vCPU) mà NodeManager
+        cấp và canh giữ, không phải Docker container. Tiến trình nào vượt suất RAM sẽ bị NodeManager giết.
+        Đó là gốc của lỗi kinh điển <code>Container killed by YARN for exceeding memory limits</code>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 07 -->
+<section class="step" id="s7">
+  <div class="step-no">07</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành · 45 phút · hadoop-yarn.md</p>
+    <h2>Dựng YARN một node trên Mac</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — <code>yarn node -list</code> báo 1 node <code>RUNNING</code> và
+      <code>http://localhost:8088</code> mở được.
+    </div>
+
+    <div class="prose">
+      <p>
+        Hướng dẫn <code>setup/hadoop-yarn.md</code> viết cho Linux. Trên Mac có hai chỗ nên làm khác:
+      </p>
+      <ul>
+        <li>
+          <b>Không cần SSH.</b> <code>start-yarn.sh</code> dùng <code>ssh localhost</code> để bật tiến trình
+          trên từng máy, nên tài liệu bắt bạn cấu hình SSH không mật khẩu (trên Mac còn phải bật
+          Remote Login). Với một máy, gọi thẳng <code>yarn --daemon start</code> là xong.
+        </li>
+        <li>
+          <b>Không cần HDFS.</b> Dữ liệu nằm trên ổ đĩa và trên GCS, nên chỉ bật phần YARN. Dataproc
+          cũng khuyên đọc ghi GCS thay vì HDFS.
+        </li>
+      </ul>
+    </div>
+
+    <h3>7a. Tải và giải nén Hadoop 3.5.0</h3>
+    <div class="code">
+      <div class="code-head">Terminal · ~ (khoảng 580 MB)</div>
+<pre>cd ~
+curl -LO https://dlcdn.apache.org/hadoop/common/hadoop-3.5.0/hadoop-3.5.0.tar.gz
+tar xzf hadoop-3.5.0.tar.gz
+
+<span class="c"># Hadoop cần biết Java ở đâu — cùng Java 17 với Spark</span>
+echo 'export JAVA_HOME=/opt/homebrew/opt/openjdk@17' \
+  &gt;&gt; ~/hadoop-3.5.0/etc/hadoop/hadoop-env.sh</pre>
+    </div>
+
+    <h3>7b. Cấu hình <code>yarn-site.xml</code></h3>
+    <div class="prose">
+      <p>Mở <code>~/hadoop-3.5.0/etc/hadoop/yarn-site.xml</code>, thay toàn bộ nội dung:</p>
+    </div>
+    <div class="code">
+      <div class="code-head">~/hadoop-3.5.0/etc/hadoop/yarn-site.xml</div>
+<pre>&lt;configuration&gt;
+  <span class="c">&lt;!-- RM nghe ở localhost --&gt;</span>
+  &lt;property&gt;&lt;name&gt;yarn.resourcemanager.hostname&lt;/name&gt;&lt;value&gt;localhost&lt;/value&gt;&lt;/property&gt;
+
+  <span class="c">&lt;!-- “máy” này cho YARN mượn 8 GB và 6 core (Mac có 16 GB, 10 core) --&gt;</span>
+  &lt;property&gt;&lt;name&gt;yarn.nodemanager.resource.memory-mb&lt;/name&gt;&lt;value&gt;8192&lt;/value&gt;&lt;/property&gt;
+  &lt;property&gt;&lt;name&gt;yarn.nodemanager.resource.cpu-vcores&lt;/name&gt;&lt;value&gt;6&lt;/value&gt;&lt;/property&gt;
+
+  <span class="c">&lt;!-- tắt kiểm tra RAM ảo: JVM Java 17 hay bị giết oan vì nó --&gt;</span>
+  &lt;property&gt;&lt;name&gt;yarn.nodemanager.vmem-check-enabled&lt;/name&gt;&lt;value&gt;false&lt;/value&gt;&lt;/property&gt;
+
+  <span class="c">&lt;!-- ổ đĩa Mac của bạn đang đầy 80%; mặc định quá 90% là node bị đánh dấu hỏng --&gt;</span>
+  &lt;property&gt;
+    &lt;name&gt;yarn.nodemanager.disk-health-checker.max-disk-utilization-per-disk-percentage&lt;/name&gt;
+    &lt;value&gt;98&lt;/value&gt;
+  &lt;/property&gt;
+&lt;/configuration&gt;</pre>
+    </div>
+
+    <h3>7c. Thêm biến môi trường vào <code>env.sh</code></h3>
+    <div class="code">
+      <div class="code-head">06-batch/practice/env.sh · thêm vào cuối</div>
+<pre>export HADOOP_HOME="$HOME/hadoop-3.5.0"
+export HADOOP_CONF_DIR="$HADOOP_HOME/etc/hadoop"
+export YARN_CONF_DIR="$HADOOP_CONF_DIR"   <span class="c"># spark-submit --master yarn đọc địa chỉ RM ở đây</span>
+export PATH="$HADOOP_HOME/bin:$PATH"</pre>
+    </div>
+
+    <h3>7d. Bật YARN</h3>
+    <div class="code">
+      <div class="code-head">Terminal</div>
+<pre>source env.sh
+yarn --daemon start resourcemanager
+yarn --daemon start nodemanager
+
+jps                 <span class="c"># liệt kê tiến trình Java</span>
+yarn node -list     <span class="c"># hỏi RM: có bao nhiêu NodeManager?</span></pre>
+    </div>
+    <div class="out">
+      <div class="out-head">Kết quả mong đợi</div>
+<pre><span class="dim">12345</span> <span class="hl">ResourceManager</span>
+<span class="dim">12399</span> <span class="hl">NodeManager</span>
+<span class="dim">12450</span> Jps
+
+Total Nodes:1
+         Node-Id      Node-State  Node-Http-Address  Number-of-Running-Containers
+ <span class="dim">&lt;máy-bạn&gt;:xxxxx</span>         <span class="good">RUNNING</span>     <span class="dim">&lt;máy-bạn&gt;</span>:8042                             0</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Mở <code>http://localhost:8088</code>. Ô <b>Memory Total</b> phải là <b>8 GB</b> và
+        <b>VCores Total</b> là <b>6</b>, đúng hai con số bạn vừa khai. Dòng
+        <code>WARN NativeCodeLoader: Unable to load native-hadoop library</code> là bình thường trên Mac.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 08 -->
+<section class="step" id="s8">
+  <div class="step-no">08</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành · 45 phút · checkpoint</p>
+    <h2><code>spark-submit --master yarn</code></h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Thấy job của bạn trong danh sách app ở <code>:8088</code> với trạng thái
+      <code>FINISHED / SUCCEEDED</code>, lần đầu với dữ liệu local, lần hai với GCS + BigQuery.
+    </div>
+
+    <h3>8a. Thử sai có chủ đích: script Ngày 5</h3>
+    <div class="code">
+      <div class="code-head">Terminal</div>
+<pre>spark-submit --master yarn 06_daily_zone_revenue.py \
+  --input_green 'data/pq/green/2021/*' --input_yellow 'data/pq/yellow/2021/*' \
+  --zones data/raw/zones/taxi_zone_lookup.csv --output /tmp/ngay7_bay</pre>
+    </div>
+    <div class="prose">
+      <p>
+        Job chạy xong, nhưng refresh <code>:8088</code> thì <b>không có app nào</b>. Lý do là dòng
+        <code>.master("local[*]")</code> trong script đã thắng <code>--master yarn</code>, đúng cái bẫy ở
+        bước 05. Chẳng có lỗi nào báo cho bạn biết, nên phải tự kiểm tra trên UI.
+      </p>
+    </div>
+
+    <h3>8b. Lần thật: dữ liệu local, chạy trên YARN</h3>
+    <div class="code">
+      <div class="code-head">Terminal</div>
+<pre>spark-submit \
+  --master yarn \
+  --deploy-mode client \
+  --num-executors 2 --executor-cores 2 --executor-memory 2g \
+  10_revenue_cloud.py \
+    --input_green  "$PWD/data/pq/green/2021/*" \
+    --input_yellow "$PWD/data/pq/yellow/2021/*" \
+    --zones        "$PWD/data/raw/zones/taxi_zone_lookup.csv" \
+    --timezone     America/New_York \
+    --output       "$PWD/data/report/ngay7_yarn"</pre>
+    </div>
+    <div class="out">
+      <div class="out-head">Những dòng log nên để ý</div>
+<pre>WARN Client: <span class="dim">Neither spark.yarn.jars nor spark.yarn.archive is set,</span>
+             <span class="dim">falling back to uploading libraries under SPARK_HOME.</span>   ← bình thường, chậm ~20s
+INFO Client: Submitted application <span class="hl">application_17xxxxxxxxxxx_0001</span>
+INFO Client: Application report for application_…_0001 (state: <span class="hl">ACCEPTED</span>)
+INFO Client: Application report for application_…_0001 (state: <span class="good">RUNNING</span>)
+...
+số dòng: <span class="good">91280</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Dùng đường dẫn tuyệt đối (<code>$PWD/…</code>) vì executor chạy trong thư mục làm việc riêng
+        của container chứ không phải thư mục của bạn. Trên một máy thì đường dẫn tương đối thường vẫn
+        chạy, nhưng tập thói quen này từ giờ.
+      </p>
+      <p>
+        Trong lúc job chạy, mở <code>:8088</code> → bấm vào app → <b>ApplicationMaster</b> để nhảy
+        sang Spark UI qua proxy của YARN. Ở trang <b>Nodes</b>, xem RAM đang dùng:
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Container</th><th class="num">Spark xin</th><th class="num">+ overhead</th><th class="num">YARN làm tròn lên bội 1 GB</th></tr></thead>
+        <tbody>
+          <tr><td>executor 1</td><td class="num">2.048 MB</td><td class="num">+384 = 2.432</td><td class="num">3.072 MB</td></tr>
+          <tr><td>executor 2</td><td class="num">2.048 MB</td><td class="num">+384 = 2.432</td><td class="num">3.072 MB</td></tr>
+          <tr><td>AppMaster (client mode)</td><td class="num">512 MB</td><td class="num">+384 = 896</td><td class="num">1.024 MB</td></tr>
+          <tr><td><b>Tổng dự kiến</b></td><td class="num"></td><td class="num"></td><td class="num"><b>7.168 MB ≈ 7 GB / 8 GB</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose">
+      <p>
+        Overhead là RAM ngoài heap Java (thread, buffer, tiến trình Python) và bằng
+        <code>max(384 MB, 10% × executor-memory)</code>. YARN cấp RAM theo bội của
+        <code>yarn.scheduler.minimum-allocation-mb</code> (mặc định 1.024). Thử xin
+        <code>--num-executors 3</code>: tổng cần 10 GB &gt; 8 GB, executor thứ ba sẽ không bao giờ được cấp
+        và job chạy với 2 executor. Đây chính là chuyện “cụm hết chỗ” mà bạn sẽ gặp ở công ty.
+      </p>
+    </div>
+
+    <h3>8c. Checkpoint: YARN + GCS + BigQuery cùng lúc</h3>
+    <div class="code">
+      <div class="code-head">Terminal</div>
+<pre>B=gs://de-zoomcamp-500308-nytaxi
+
+spark-submit \
+  --master yarn --deploy-mode client \
+  --num-executors 2 --executor-cores 2 --executor-memory 2g \
+  --jars lib/gcs-connector-3.1.9.jar \
+  --packages com.google.cloud.spark:spark-4.0-bigquery:0.46.0 \
+  --conf spark.hadoop.fs.gs.impl=com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem \
+  --conf spark.hadoop.fs.gs.auth.type=APPLICATION_DEFAULT \
+  --conf spark.hadoop.fs.gs.project.id=de-zoomcamp-500308 \
+  10_revenue_cloud.py \
+    --input_green  "$B/pq/green/2021/*" \
+    --input_yellow "$B/pq/yellow/2021/*" \
+    --zones        "$B/zones/taxi_zone_lookup.csv" \
+    --timezone     America/New_York \
+    --format       bigquery \
+    --output       nytaxi.daily_zone_revenue_yarn</pre>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Gọn hơn: chuyển cấu hình cố định vào spark-defaults.conf</p>
+      <p>
+        Ba dòng <code>--conf spark.hadoop.fs.gs…</code> lặp lại ở mọi lệnh. Đây là thứ
+        <code>setup/config/spark-defaults.conf</code> trong repo làm: tạo <code>conf/spark-defaults.conf</code>
+        trong <code>practice/</code>, mỗi dòng một cặp <code>khóa  giá-trị</code>
+        (thêm cả <code>spark.jars</code> và <code>spark.jars.packages</code>), rồi
+        <code>export SPARK_CONF_DIR="$HERE/conf"</code> trong <code>env.sh</code>. Lệnh submit chỉ còn phần
+        <code>--master</code> và tham số của job.
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">Terminal · dọn dẹp cuối buổi</div>
+<pre>yarn --daemon stop nodemanager
+yarn --daemon stop resourcemanager
+gcloud storage rm -r gs://de-zoomcamp-500308-nytaxi/report/ngay7_test</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 09 -->
+<section class="step" id="s9">
+  <div class="step-no">09</div>
+  <div class="step-body">
+    <p class="step-kicker">Tùy chọn · tốn tiền · bài 15</p>
+    <h2>Cùng script, lên Dataproc</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Thấy rằng chuyển từ YARN trên Mac sang YARN do Google quản lý gần như chỉ là
+      đổi lệnh submit. Làm phần này khi còn thời gian; checkpoint hôm nay không bắt buộc.
+    </div>
+
+    <div class="prose">
+      <p>Khác biệt so với chạy trên Mac:</p>
+      <ul>
+        <li>
+          <b>Không cần <code>--jars</code> GCS và BigQuery.</b> Image Dataproc 2.1 trở lên đã cài sẵn cả hai
+          connector, và tự xác thực bằng service account của VM. Đây là lý do bước 03 khuyên giữ cấu hình
+          connector <em>ngoài</em> code: code chứa đường dẫn <code>lib/…jar</code> sẽ hỏng trên Dataproc.
+        </li>
+        <li>
+          <b>Mọi input phải ở trên GCS</b>, kể cả file zones và chính file <code>.py</code>.
+        </li>
+        <li>
+          <b>Image 2.2 dùng Spark 3.5</b>, không phải 4.2. Script của bạn chỉ dùng API phổ thông nên chạy được.
+        </li>
+      </ul>
+    </div>
+
+    <div class="code">
+      <div class="code-head">Terminal · region us-central1 vì bucket và dataset ở US</div>
+<pre>B=gs://de-zoomcamp-500308-nytaxi
+
+<span class="c"># 1 node, tự xóa sau 30 phút rảnh — tránh quên tắt</span>
+gcloud dataproc clusters create de-zoomcamp-cluster \
+  --region=us-central1 --single-node \
+  --image-version=2.2-debian12 \
+  --max-idle=30m
+
+gcloud storage cp 10_revenue_cloud.py $B/code/
+
+<span class="c"># trước dấu -- là cấu hình submit; sau dấu -- là tham số job (như spark-submit)</span>
+gcloud dataproc jobs submit pyspark $B/code/10_revenue_cloud.py \
+  --cluster=de-zoomcamp-cluster --region=us-central1 \
+  -- \
+    --input_green="$B/pq/green/2021/*" \
+    --input_yellow="$B/pq/yellow/2021/*" \
+    --zones="$B/zones/taxi_zone_lookup.csv" \
+    --timezone=America/New_York \
+    --format=bigquery \
+    --output=nytaxi.daily_zone_revenue_dataproc
+
+<span class="c"># xong thì xóa ngay, đừng đợi max-idle</span>
+gcloud dataproc clusters delete de-zoomcamp-cluster --region=us-central1</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Chi phí và quyền</p>
+      <p>
+        Cụm 1 node cấu hình mặc định tốn cỡ vài chục cent mỗi giờ khi đang bật (VM + phí Dataproc). Một
+        buổi học không đáng kể, nhưng quên tắt cả tuần là vài chục USD. Luôn để <code>--max-idle</code>. Nếu bị
+        <code>PERMISSION_DENIED</code> như trong video, tài khoản cần role <b>Dataproc Editor</b> và service
+        account của VM cần <b>Dataproc Worker</b> + quyền ghi BigQuery.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ lỗi -->
+<section class="step" id="loi">
+  <div class="step-no">!</div>
+  <div class="step-body">
+    <p class="step-kicker">Tra cứu khi kẹt</p>
+    <h2>Lỗi hay gặp hôm nay</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Thấy gì</th><th>Nghĩa là</th><th>Sửa</th></tr></thead>
+        <tbody>
+          <tr><td><code>No FileSystem for scheme "gs"</code></td><td>Spark chưa có GCS connector</td><td>Kiểm tra <code>--jars</code>/<code>spark.jars</code> trỏ đúng file</td></tr>
+          <tr><td><code>Failed to find data source: bigquery</code></td><td>Chưa có BigQuery connector (lỗi y như video)</td><td>Thêm <code>--packages com.google.cloud.spark:…</code></td></tr>
+          <tr><td><code>NoSuchMethodError … scala …</code></td><td>Jar Scala 2.12 trên Spark Scala 2.13</td><td>Đổi sang bản <code>_2.13</code> hoặc <code>spark-4.0-bigquery</code></td></tr>
+          <tr><td><code>401 Unauthorized</code> / <code>Anonymous caller</code></td><td>Chưa có ADC, hoặc dùng khóa cấu hình của connector 2.x</td><td>Bước 02; dùng <code>fs.gs.auth.type=APPLICATION_DEFAULT</code></td></tr>
+          <tr><td><code>… requires a quota project</code></td><td>ADC bằng tài khoản người chưa gắn project</td><td><code>gcloud auth application-default set-quota-project de-zoomcamp-500308</code></td></tr>
+          <tr><td><code>Cannot read and write in different locations</code></td><td>Bucket tạm khác location với dataset</td><td>Dùng bucket cùng region, hoặc <code>writeMethod=direct</code></td></tr>
+          <tr><td>App kẹt ở <code>ACCEPTED</code> mãi</td><td>NodeManager không chạy, bị đánh dấu UNHEALTHY, hoặc xin RAM vượt 8 GB</td><td><code>yarn node -list -all</code>; xem trang Nodes ở <code>:8088</code>; giảm <code>--executor-memory</code></td></tr>
+          <tr><td><code>Container killed … exceeding memory limits</code></td><td>Tiến trình vượt suất RAM của container</td><td>Tăng <code>spark.executor.memoryOverhead</code> hoặc <code>--executor-memory</code></td></tr>
+          <tr><td>Job chạy xong nhưng không hiện ở <code>:8088</code></td><td><code>.master()</code> cứng trong code</td><td>Xóa dòng đó (bước 05)</td></tr>
+          <tr><td><code>Python in worker has different version</code></td><td>Executor dùng Python khác driver</td><td><code>source env.sh</code> trước khi submit</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<div class="checkpoint" id="check">
+  <h2>Checkpoint Ngày 7</h2>
+  <p style="color:var(--ink-soft);max-width:var(--measure)">
+    Theo kế hoạch: chạy được một Spark job đọc/ghi GCS + BigQuery, và chạy được trên YARN thay vì local mode.
+    Đánh dấu từng dòng khi bạn tự nhìn thấy kết quả.
+  </p>
+  <ul class="checklist">
+    <li><span><code>gcloud storage ls gs://de-zoomcamp-500308-nytaxi/pq/</code> có <code>green/</code> và <code>yellow/</code></span></li>
+    <li><span><code>python 10_gcs_read.py</code> in ra <b>570466</b> và ghi được <code>report/ngay7_test</code> lên bucket</span></li>
+    <li><span>Bảng <code>nytaxi.daily_zone_revenue</code> có <b>91.280</b> dòng trong BigQuery</span></li>
+    <li><span><code>yarn node -list</code> có 1 node <code>RUNNING</code>; <code>:8088</code> báo 8 GB / 6 vCores</span></li>
+    <li><span>App ở bước 8c hiện trên <code>:8088</code> với <code>FINISHED · SUCCEEDED</code>, và bảng <code>nytaxi.daily_zone_revenue_yarn</code> tồn tại</span></li>
+  </ul>
+
+  <p class="q" style="margin-bottom:6px">Tự kiểm tra: trả lời thành tiếng trước khi mở đáp án</p>
+
+  <details>
+    <summary>Vì sao <code>spark.read.parquet("gs://…")</code> không chạy được nếu chỉ cài PySpark?</summary>
+    <div class="details-body">
+      Spark đọc file qua Hadoop FileSystem, và chọn class xử lý theo scheme của đường dẫn. PySpark chỉ gói
+      sẵn class cho <code>file://</code> và <code>hdfs://</code>. Scheme <code>gs</code> cần class
+      <code>GoogleHadoopFileSystem</code> nằm trong jar GCS connector.
+    </div>
+  </details>
+  <details>
+    <summary><code>--jars</code> khác <code>--packages</code> thế nào?</summary>
+    <div class="details-body">
+      <code>--jars</code> nhận file jar có sẵn trên đĩa (hoặc trên GCS). <code>--packages</code> nhận tọa độ
+      Maven; Spark tự tải jar <em>và</em> các thư viện nó phụ thuộc. Cả hai đều được gửi tới executor.
+    </div>
+  </details>
+  <details>
+    <summary>Vì sao bài 16 cần <code>temporaryGcsBucket</code>?</summary>
+    <div class="details-body">
+      Vì mặc định connector ghi kiểu indirect: executor ghi file ra bucket tạm, rồi BigQuery chạy load job
+      nạp thư mục đó vào bảng. Bucket tạm phải cùng location với dataset. Chế độ
+      <code>writeMethod=direct</code> dùng Storage Write API nên không cần bucket.
+    </div>
+  </details>
+  <details>
+    <summary>ResourceManager, NodeManager, ApplicationMaster: mỗi cái làm gì?</summary>
+    <div class="details-body">
+      ResourceManager (1 cái/cụm) quyết định chia RAM/CPU cho các app. NodeManager (1 cái/máy) chạy và canh
+      các container trên máy đó. ApplicationMaster (1 cái/app) là container đầu tiên của app, thay mặt
+      app xin thêm container cho executor. Trong cluster mode, driver Spark chạy luôn trong AppMaster.
+    </div>
+  </details>
+  <details>
+    <summary>Xin <code>--executor-memory 2g</code> mà YARN báo container 3 GB. Vì sao?</summary>
+    <div class="details-body">
+      Spark cộng overhead <code>max(384 MB, 10%)</code> cho bộ nhớ ngoài heap → 2.432 MB. YARN cấp theo bội
+      của <code>minimum-allocation-mb</code> (1.024) nên làm tròn lên 3.072 MB.
+    </div>
+  </details>
+  <details>
+    <summary>Client mode và cluster mode: gập laptop thì job nào chết?</summary>
+    <div class="details-body">
+      Client mode, vì driver chạy trong terminal trên laptop. Cluster mode đặt driver trong container
+      trên cụm nên laptop chỉ là người gửi.
+    </div>
+  </details>
+  <details>
+    <summary>Dataproc khác gì YARN bạn vừa dựng?</summary>
+    <div class="details-body">
+      Về kiến trúc thì giống: Dataproc chạy Spark trên YARN. Khác ở chỗ Google dựng và vá cụm, cài sẵn
+      connector GCS/BigQuery, tự xác thực bằng service account của VM, và bạn trả tiền theo phút.
+      Script giữ nguyên, chỉ đổi lệnh submit.
+    </div>
+  </details>
+</div>
+
+<div class="closing">
+  <p>
+    <b>Ngày mai — Ngày 8:</b> rời batch sang streaming. Kafka (Redpanda), viết producer và consumer Python,
+    lưu event vào Postgres. Câu hỏi nối từ hôm nay: Spark xử lý “cả tháng dữ liệu một lần”; Kafka xử lý
+    “từng chuyến xe ngay khi xảy ra”.
+  </p>
+  <p style="margin-bottom:0;color:var(--muted);font-family:var(--mono);font-size:12.5px">
+    Nguồn: 06-batch/13 → 16 · setup/hadoop-yarn.md · Script: 06-batch/practice/10_gcs_read.py · 10_revenue_cloud.py ·
+    Số dòng 570.466 và 91.280 đo ở Ngày 5 trên green + yellow 2021/01–07
+  </p>
+</div>
+
+</div>

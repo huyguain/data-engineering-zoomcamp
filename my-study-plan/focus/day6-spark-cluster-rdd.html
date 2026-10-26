@@ -1,0 +1,1337 @@
+<title>Phòng máy của Spark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+:root {
+  /* nền + chữ — xám ngả xanh đá, không phải xám trung tính */
+  --paper:      #F1F3F6;
+  --surface:    #FFFFFF;
+  --surface-2:  #E6EAEF;
+  --ink:        #141922;
+  --ink-soft:   #39414E;
+  --muted:      #67707D;
+  --rule:       #D7DCE3;
+  --rule-strong:#BAC2CC;
+
+  /* bốn vai trò trong cụm — màu mang nghĩa, không trang trí */
+  --driver:     #96561A;   /* driver: nơi gửi job đi */
+  --master:     #3B3A8F;   /* master: điều phối */
+  --executor:   #0B6A68;   /* executor: nơi chạy thật */
+  --store:      #4A5C72;   /* kho dữ liệu: S3/GCS/HDFS */
+  --alarm:      #A52742;   /* shuffle, lệch partition, bẫy */
+
+  --driver-bg:  #F6E9DC;
+  --master-bg:  #E6E5F6;
+  --executor-bg:#DCEDEC;
+  --store-bg:   #E3E8EF;
+  --alarm-bg:   #F7E3E8;
+
+  --code-bg:    #151A22;
+  --code-fg:    #E4E8ED;
+  --code-dim:   #7C8795;
+  --code-key:   #8FD0C4;
+  --code-str:   #E0B07C;
+  --code-note:  #6F7C8B;
+
+  --display: "IBM Plex Sans Condensed", "Helvetica Neue", Arial, sans-serif;
+  --body: "IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 68ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #10141A;
+    --surface:    #171C24;
+    --surface-2:  #1F2630;
+    --ink:        #E7EBF0;
+    --ink-soft:   #C0C7D1;
+    --muted:      #8B94A1;
+    --rule:       #28303A;
+    --rule-strong:#3A4452;
+
+    --driver:     #E4A165;
+    --master:     #9D9AF2;
+    --executor:   #4CC3BB;
+    --store:      #9BB1C9;
+    --alarm:      #F07A90;
+
+    --driver-bg:  #32210F;
+    --master-bg:  #221F3F;
+    --executor-bg:#0F2E2D;
+    --store-bg:   #1B2733;
+    --alarm-bg:   #381825;
+
+    --code-bg:    #0B0E13;
+    --code-fg:    #E4E8ED;
+    --code-dim:   #6E7988;
+    --code-key:   #8FD0C4;
+    --code-str:   #E0B07C;
+    --code-note:  #626E7C;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #10141A;
+  --surface:    #171C24;
+  --surface-2:  #1F2630;
+  --ink:        #E7EBF0;
+  --ink-soft:   #C0C7D1;
+  --muted:      #8B94A1;
+  --rule:       #28303A;
+  --rule-strong:#3A4452;
+
+  --driver:     #E4A165;
+  --master:     #9D9AF2;
+  --executor:   #4CC3BB;
+  --store:      #9BB1C9;
+  --alarm:      #F07A90;
+
+  --driver-bg:  #32210F;
+  --master-bg:  #221F3F;
+  --executor-bg:#0F2E2D;
+  --store-bg:   #1B2733;
+  --alarm-bg:   #381825;
+
+  --code-bg:    #0B0E13;
+  --code-fg:    #E4E8ED;
+  --code-dim:   #6E7988;
+  --code-key:   #8FD0C4;
+  --code-str:   #E0B07C;
+  --code-note:  #626E7C;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17.5px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+/* ---------- mở đầu ---------- */
+
+.masthead {
+  padding: 76px 0 36px;
+  border-bottom: 2px solid var(--ink);
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+.masthead h1 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(42px, 8vw, 78px);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+  margin: 0 0 24px;
+  text-wrap: balance;
+}
+.standfirst {
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  max-width: var(--measure);
+  margin: 0 0 30px;
+}
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 26px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  padding-bottom: 4px;
+}
+.meta-strip b { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- bước ---------- */
+
+.step {
+  display: grid;
+  grid-template-columns: 84px 1fr;
+  gap: 0 28px;
+  padding: 54px 0 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.step-no {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 46px;
+  line-height: 1;
+  color: var(--rule-strong);
+  letter-spacing: -0.02em;
+  position: sticky;
+  top: 24px;
+  align-self: start;
+}
+.step-kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.step h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(27px, 4vw, 38px);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.step h3 {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 21px;
+  letter-spacing: -0.005em;
+  margin: 34px 0 12px;
+}
+
+.prose { max-width: var(--measure); }
+.prose p { margin: 0 0 16px; }
+.prose ul, .prose ol { max-width: var(--measure); padding-left: 22px; margin: 0 0 18px; }
+.prose li { margin-bottom: 9px; }
+.prose b, .prose strong { font-weight: 600; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.87em;
+  background: var(--surface-2);
+  border-radius: 3px;
+  padding: 0.1em 0.34em;
+}
+
+.step-aim {
+  background: var(--surface);
+  border-left: 3px solid var(--ink);
+  padding: 14px 18px;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+  font-size: 16.5px;
+}
+.step-aim b {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ---------- code + output ---------- */
+
+.code, .out {
+  margin: 0 0 22px;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.code { background: var(--code-bg); }
+.code-head, .out-head {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  padding: 8px 16px;
+  text-transform: uppercase;
+}
+.code-head {
+  background: rgba(255,255,255,0.06);
+  color: var(--code-dim);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.code pre {
+  margin: 0;
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.62;
+  color: var(--code-fg);
+}
+.code .k { color: var(--code-key); }
+.code .s { color: var(--code-str); }
+.code .c { color: var(--code-note); font-style: italic; }
+
+.out {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+}
+.out-head {
+  background: var(--surface-2);
+  color: var(--muted);
+  border-bottom: 1px solid var(--rule);
+}
+.out pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.out .hl { color: var(--ink); font-weight: 600; }
+.out .dim { color: var(--muted); }
+.out .bad { color: var(--alarm); font-weight: 600; }
+.out .good { color: var(--executor); font-weight: 600; }
+
+/* ---------- bảng ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 0 24px; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+th, td {
+  text-align: left;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+th {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--rule-strong);
+}
+td.num { text-align: right; padding-right: 22px; font-family: var(--mono); font-size: 13.5px; }
+th.num { text-align: right; padding-right: 22px; }
+
+/* ---------- panel ---------- */
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--rule-strong);
+  padding: 16px 20px;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+  font-size: 16.5px;
+}
+.panel p { margin: 0 0 12px; }
+.panel p:last-child { margin-bottom: 0; }
+.panel-label {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 6px !important;
+  color: var(--muted);
+}
+.panel.warn { border-left-color: var(--alarm); background: var(--alarm-bg); }
+.panel.warn .panel-label { color: var(--alarm); }
+.panel.note { border-left-color: var(--master); background: var(--master-bg); }
+.panel.note .panel-label { color: var(--master); }
+.panel.ask { border-left-color: var(--executor); background: var(--executor-bg); }
+.panel.ask .panel-label { color: var(--executor); }
+
+/* ---------- chip màu vai trò ---------- */
+
+.chip {
+  font-family: var(--mono);
+  font-size: 0.8em;
+  padding: 0.14em 0.5em;
+  border-radius: 3px;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.chip.d { background: var(--driver-bg); color: var(--driver); }
+.chip.m { background: var(--master-bg); color: var(--master); }
+.chip.e { background: var(--executor-bg); color: var(--executor); }
+.chip.st { background: var(--store-bg); color: var(--store); }
+.chip.a { background: var(--alarm-bg); color: var(--alarm); }
+
+/* ---------- sơ đồ ---------- */
+
+.fig {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 22px 20px 16px;
+  margin: 0 0 24px;
+  overflow-x: auto;
+}
+.fig svg { display: block; min-width: 620px; width: 100%; height: auto; }
+.fig-cap {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  margin: 14px 0 0;
+  line-height: 1.55;
+}
+.svg-label { font-family: var(--display); font-weight: 600; font-size: 15px; }
+.svg-sub { font-family: var(--mono); font-size: 11px; }
+.svg-tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; }
+
+/* ---------- biểu đồ thanh ---------- */
+
+.bars { margin: 0 0 24px; max-width: 640px; }
+.bar-row {
+  display: grid;
+  grid-template-columns: 112px 1fr 76px;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 9px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.bar-label { color: var(--ink-soft); }
+.bar-track { background: var(--surface-2); border-radius: 2px; height: 20px; }
+.bar-fill { height: 20px; border-radius: 2px; }
+.bar-val { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ---------- checkpoint ---------- */
+
+.checkpoint {
+  margin-top: 60px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 34px 32px;
+  background: var(--surface);
+}
+.checkpoint h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 32px;
+  margin: 0 0 8px;
+}
+.qa { max-width: var(--measure); margin-bottom: 22px; }
+.qa > p { margin: 0 0 8px; }
+.q {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink);
+}
+.a { color: var(--ink-soft); }
+
+details {
+  border-top: 1px solid var(--rule);
+  padding: 12px 0;
+  max-width: var(--measure);
+}
+summary {
+  cursor: pointer;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 17px;
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▸ "; color: var(--muted); }
+details[open] summary::before { content: "▾ "; }
+summary:focus-visible { outline: 2px solid var(--master); outline-offset: 3px; }
+.details-body { padding: 12px 0 4px 18px; color: var(--ink-soft); }
+
+.closing {
+  margin-top: 56px;
+  padding-top: 28px;
+  border-top: 2px solid var(--ink);
+  max-width: var(--measure);
+  color: var(--ink-soft);
+}
+
+@media (max-width: 680px) {
+  .step { grid-template-columns: 1fr; gap: 0; }
+  .step-no { position: static; font-size: 32px; margin-bottom: 8px; }
+  .bar-row { grid-template-columns: 92px 1fr 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Ngày 6 · Module 06-batch · Lab tự làm</p>
+  <h1>Phòng máy<br>của Spark</h1>
+  <p class="standfirst">
+    Hôm qua bạn học Spark <em>làm gì</em> với dữ liệu. Hôm nay là ngày nhìn vào bên trong cỗ máy:
+    <strong>ai gửi job, ai điều phối, ai chạy thật</strong>, và tầng thấp nhất mà DataFrame đứng
+    lên trên — <strong>RDD</strong>. Đây là phần JD hay hỏi sâu nhất, vì nó cho biết bạn đã từng
+    nhìn Spark chạy hay chỉ mới gõ theo tutorial.
+  </p>
+  <div class="meta-strip">
+    <span><b>Đọc:</b> 08-anatomy-of-a-spark-cluster · 11-operations-on-spark-rdds · 12-spark-rdd-mappartition</span>
+    <span><b>Dữ liệu:</b> green 2021/01–07 · 570.466 dòng</span>
+    <span><b>Đã chạy thật trên:</b> PySpark 4.2.0 · macOS · local[1] và local[8]</span>
+  </div>
+</header>
+
+<section class="step">
+  <div class="step-no">00</div>
+  <div class="step-body">
+    <p class="step-kicker">Trước khi bắt đầu</p>
+    <h2>Ba câu hỏi của hôm nay</h2>
+    <div class="prose">
+      <p>
+        Cho tới hết Ngày 5, mọi job Spark của bạn đều chạy bằng <code>local[*]</code> — một máy,
+        một tiến trình. Nó che mất chuyện quan trọng nhất: Spark sinh ra <em>không phải</em> để
+        chạy trên một máy. Hôm nay trả lời ba câu:
+      </p>
+      <ol>
+        <li>
+          Một cụm Spark thật gồm những ai? → <span class="chip d">driver</span>
+          <span class="chip m">master</span> <span class="chip e">executor</span>
+          <span class="chip st">kho dữ liệu</span>, mỗi vai một việc.
+        </li>
+        <li>
+          DataFrame đứng trên cái gì? → trên <b>RDD</b>. Bạn sẽ viết lại báo cáo doanh thu
+          của Ngày 5 bằng <code>filter</code> / <code>map</code> / <code>reduceByKey</code>
+          để thấy <code>GROUP BY</code> bên dưới thật ra là gì.
+        </li>
+        <li>
+          Khi nào phải tụt xuống tầng RDD? → gần như không bao giờ, trừ
+          <code>mapPartitions</code> — thao tác xử lý <b>cả một partition một lượt</b>,
+          thứ dùng để chạy model ML trên dữ liệu lớn.
+        </li>
+      </ol>
+      <p>
+        Toàn bộ kiến trúc hôm nay gói trong một từ: <b>partition</b>. Partition là đơn vị chia
+        việc. Hiểu partition là hiểu vì sao cụm nhanh, vì sao cụm chậm, và vì sao một executor
+        chết mà job vẫn sống.
+      </p>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Cách dùng tài liệu này</p>
+      <p>
+        Mỗi bước có <b>mục tiêu</b> → <b>bạn tự gõ</b> → <b>kết quả thật để đối chiếu</b>.
+        Mọi con số ở đây lấy từ một lần chạy thật trên chính dữ liệu trong máy bạn
+        (green 2021/01–07), không phải số trong video khóa học.
+      </p>
+      <p style="margin-bottom:0">
+        Ba script của hôm nay nằm ở <code>06-batch/practice/</code>:
+        <code>07_cluster_anatomy.py</code>, <code>08_rdds.py</code>,
+        <code>09_map_partitions.py</code>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">01</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 20 phút</p>
+    <h2>Bốn vai trong một cụm Spark</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Vẽ lại được sơ đồ dưới đây bằng trí nhớ, và nói được mỗi hộp
+      làm gì, mất nó thì chuyện gì xảy ra.
+    </div>
+
+    <div class="fig">
+      <svg viewBox="0 0 880 430" role="img" aria-label="Sơ đồ cụm Spark: driver gửi job qua spark-submit tới master, master điều phối các executor, các executor đọc ghi dữ liệu từ kho đám mây">
+        <!-- khung cụm -->
+        <rect x="236" y="14" width="630" height="258" rx="6" fill="none" stroke="var(--rule-strong)" stroke-dasharray="5 5"/>
+        <text x="252" y="36" class="svg-tag" fill="var(--muted)">CỤM SPARK</text>
+
+        <!-- driver -->
+        <rect x="14" y="78" width="176" height="92" rx="5" fill="var(--driver-bg)" stroke="var(--driver)" stroke-width="1.5"/>
+        <text x="32" y="110" class="svg-label" fill="var(--driver)">DRIVER</text>
+        <text x="32" y="132" class="svg-sub" fill="var(--ink-soft)">laptop của bạn,</text>
+        <text x="32" y="148" class="svg-sub" fill="var(--ink-soft)">hoặc 1 task Airflow</text>
+
+        <!-- mũi tên spark-submit -->
+        <line x1="190" y1="124" x2="326" y2="124" stroke="var(--driver)" stroke-width="2"/>
+        <polygon points="326,124 316,119 316,129" fill="var(--driver)"/>
+        <text x="196" y="114" class="svg-tag" fill="var(--driver)">spark-submit</text>
+        <text x="196" y="144" class="svg-sub" fill="var(--muted)">code + yêu cầu tài nguyên</text>
+
+        <!-- master -->
+        <rect x="330" y="78" width="168" height="92" rx="5" fill="var(--master-bg)" stroke="var(--master)" stroke-width="1.5"/>
+        <text x="348" y="110" class="svg-label" fill="var(--master)">MASTER</text>
+        <text x="348" y="132" class="svg-sub" fill="var(--ink-soft)">điều phối, theo dõi</text>
+        <text x="348" y="148" class="svg-sub" fill="var(--ink-soft)">sức khỏe executor</text>
+        <rect x="330" y="178" width="168" height="26" rx="3" fill="none" stroke="var(--rule-strong)"/>
+        <text x="348" y="196" class="svg-tag" fill="var(--muted)">web UI · cổng 4040</text>
+
+        <!-- executors -->
+        <g>
+          <rect x="556" y="44" width="150" height="62" rx="5" fill="var(--executor-bg)" stroke="var(--executor)" stroke-width="1.5"/>
+          <text x="572" y="72" class="svg-label" fill="var(--executor)">EXECUTOR 1</text>
+          <text x="572" y="92" class="svg-sub" fill="var(--ink-soft)">nhận 1 partition</text>
+
+          <rect x="556" y="118" width="150" height="62" rx="5" fill="var(--executor-bg)" stroke="var(--executor)" stroke-width="1.5"/>
+          <text x="572" y="146" class="svg-label" fill="var(--executor)">EXECUTOR 2</text>
+          <text x="572" y="166" class="svg-sub" fill="var(--ink-soft)">nhận 1 partition</text>
+
+          <rect x="556" y="192" width="150" height="62" rx="5" fill="var(--executor-bg)" stroke="var(--alarm)" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <text x="572" y="220" class="svg-label" fill="var(--alarm)">EXECUTOR 3</text>
+          <text x="572" y="240" class="svg-sub" fill="var(--alarm)">chết giữa chừng</text>
+        </g>
+
+        <!-- mũi tên master -> executors -->
+        <line x1="498" y1="110" x2="552" y2="75" stroke="var(--master)" stroke-width="1.5"/>
+        <polygon points="552,75 542,75 547,83" fill="var(--master)"/>
+        <line x1="498" y1="124" x2="552" y2="149" stroke="var(--master)" stroke-width="1.5"/>
+        <polygon points="552,149 542,144 544,153" fill="var(--master)"/>
+        <line x1="498" y1="138" x2="552" y2="223" stroke="var(--master)" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <polygon points="552,223 543,217 543,227" fill="var(--master)"/>
+        <text x="716" y="228" class="svg-tag" fill="var(--alarm)">→ master giao lại</text>
+        <text x="716" y="244" class="svg-tag" fill="var(--alarm)">việc cho máy khác</text>
+
+        <!-- kho dữ liệu -->
+        <rect x="330" y="316" width="376" height="86" rx="5" fill="var(--store-bg)" stroke="var(--store)" stroke-width="1.5"/>
+        <text x="352" y="348" class="svg-label" fill="var(--store)">KHO DỮ LIỆU · S3 / GCS</text>
+        <text x="352" y="370" class="svg-sub" fill="var(--ink-soft)">DataFrame = nhiều file parquet = nhiều partition</text>
+        <text x="352" y="388" class="svg-sub" fill="var(--ink-soft)">cùng data center với cụm → kéo 100 MB rất nhanh</text>
+
+        <!-- mũi tên executor <-> store -->
+        <line x1="600" y1="258" x2="600" y2="312" stroke="var(--store)" stroke-width="2"/>
+        <polygon points="600,312 595,302 605,302" fill="var(--store)"/>
+        <line x1="640" y1="312" x2="640" y2="258" stroke="var(--store)" stroke-width="2"/>
+        <polygon points="640,258 635,268 645,268" fill="var(--store)"/>
+        <text x="656" y="292" class="svg-tag" fill="var(--store)">đọc partition · ghi kết quả</text>
+      </svg>
+      <p class="fig-cap">
+        Driver gửi code đi — nó không xử lý dữ liệu. Master không xử lý dữ liệu — nó chia việc.
+        Executor mới là nơi dữ liệu thật sự chạy qua. Kho dữ liệu nằm ngoài cả ba.
+      </p>
+    </div>
+
+    <div class="prose">
+      <h3>Nói lại bằng lời thường</h3>
+      <p>
+        Hình dung một xưởng in. <b>Driver</b> là người mang bản thiết kế tới và nói
+        “in cho tôi 10.000 tờ này”. <b>Master</b> là quản đốc: không đụng vào máy in, chỉ
+        xem máy nào rảnh, chia việc, và nếu một máy hỏng thì giao lại phần đó cho máy khác.
+        <b>Executor</b> là các máy in. <b>Kho dữ liệu</b> là kho giấy — nằm cạnh xưởng,
+        máy nào cần thì ra lấy.
+      </p>
+      <p>
+        Khi bạn viết <code>.master("local[*]")</code> suốt hai ngày qua, bạn đã dựng cả xưởng
+        in đó <em>bên trong một tiến trình</em>: driver, master và executor cùng một JVM,
+        mỗi core là một “máy in”. Đó là lý do <code>local[*]</code> học được kiến trúc thật —
+        chỉ thiếu phần mạng.
+      </p>
+
+      <h3>Chuyện gì xảy ra khi một executor chết</h3>
+      <p>
+        Master liên tục theo dõi executor. Một executor tắt đi — máy hỏng, bị cloud thu hồi
+        spot instance — master biết, và <b>giao lại những task của nó cho executor khác</b>.
+        Job vẫn chạy, chỉ chậm hơn. Đây chính là chữ <b>R</b> trong RDD: <em>resilient</em>.
+        Spark nhớ được công thức tạo ra mỗi partition, nên mất partition thì tính lại được.
+      </p>
+      <p>
+        Master thì phải sống suốt. Master chết là cả job chết — nên trong cụm thật người ta
+        chạy master ở chế độ high-availability.
+      </p>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Ba chữ hay lẫn trong phỏng vấn</p>
+      <p>
+        <b>Driver</b> — tiến trình chạy <code>main()</code> của bạn, giữ SparkSession, dựng
+        execution plan, và là nơi <code>collect()</code> kéo dữ liệu về (nên <code>collect()</code>
+        trên bảng lớn làm chết driver).
+      </p>
+      <p>
+        <b>Cluster manager</b> — thứ cấp phát máy: Spark Standalone (cái gọi là “master” ở trên),
+        YARN (Hadoop), Kubernetes, hoặc Mesos. Vai trò giống nhau, tên khác nhau.
+        Ngày 7 bạn sẽ chạy thật trên YARN.
+      </p>
+      <p style="margin-bottom:0">
+        <b>Executor</b> — tiến trình JVM trên máy worker, có sẵn RAM và số core được cấp.
+        Mỗi core chạy <b>một task</b> tại một thời điểm, và <b>một task = một partition</b>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">02</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 10 phút</p>
+    <h2>Vì sao Hadoop/HDFS hết thời</h2>
+
+    <div class="prose">
+      <p>
+        Thời Hadoop, dữ liệu nằm <b>ngay trên các executor</b>, mỗi partition nhân ba bản trên
+        ba máy khác nhau cho an toàn. Ý tưởng tên là <b>data locality</b>: đừng kéo dữ liệu tới
+        chỗ code, hãy gửi code tới chỗ đã có dữ liệu. Rất hợp lý khi một partition nặng 100 MB
+        còn đoạn code chỉ 10 MB — gửi cái nhẹ đi, giữ cái nặng tại chỗ.
+      </p>
+      <p>
+        Hôm nay cụm Spark và kho S3/GCS thường nằm <b>cùng một data center</b>. Kéo 100 MB qua
+        mạng nội bộ chỉ chậm hơn đọc ổ đĩa local một chút. Thế là đánh đổi lật ngược: thà để
+        executor kéo dữ liệu từ S3 về, xử lý, ghi ngược lại — còn hơn è cổ vận hành một cụm HDFS
+        chỉ để giữ file.
+      </p>
+      <p>
+        Hệ quả kiến trúc rất lớn: <b>storage và compute tách rời</b>. Cụm Spark thành thứ dùng
+        xong là tắt, cần thì bật, tính tiền theo giờ. Dữ liệu vẫn nằm yên trong S3. Mọi kiến trúc
+        lakehouse hiện đại (Databricks, EMR, Dataproc) đều dựa trên chuyện này.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>&nbsp;</th><th>Hadoop / HDFS</th><th>Spark + S3/GCS</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>Dữ liệu nằm ở</b></td>
+            <td>chính các executor, nhân 3 bản</td>
+            <td>kho ngoài, tách khỏi cụm</td>
+          </tr>
+          <tr>
+            <td><b>Triết lý</b></td>
+            <td>gửi code tới chỗ dữ liệu</td>
+            <td>kéo dữ liệu tới chỗ code</td>
+          </tr>
+          <tr>
+            <td><b>Tắt cụm thì</b></td>
+            <td>mất luôn dữ liệu</td>
+            <td>dữ liệu còn nguyên</td>
+          </tr>
+          <tr>
+            <td><b>Chi phí</b></td>
+            <td>máy chạy 24/7 để giữ file</td>
+            <td>trả tiền lưu trữ rẻ + compute theo giờ</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Nếu JD nhắc Hadoop</p>
+      <p style="margin-bottom:0">
+        Vẫn còn rất nhiều hệ thống on-premise chạy HDFS + YARN — đặc biệt là ngân hàng.
+        Điều nhà tuyển dụng muốn nghe không phải “Hadoop chết rồi”, mà là bạn hiểu
+        <b>đánh đổi</b>: data locality đổi lấy chi phí vận hành, và vì sao cloud làm đánh đổi
+        đó lật chiều. Ngày 7 bạn sẽ chạy Spark trên YARN thật.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">03</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành A · 15 phút</p>
+    <h2>Nhìn thấy executor trên chính máy mình</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Chứng minh bằng số: partition là đơn vị chia việc, và số core quyết
+      định bao nhiêu partition chạy song song.
+    </div>
+
+    <div class="prose">
+      <p>
+        Script <code>07_cluster_anatomy.py</code> in ra danh tính của driver, rồi dùng
+        <code>mapPartitionsWithIndex</code> để mỗi partition tự khai: nó là partition số mấy,
+        có bao nhiêu dòng, <b>tiến trình Python nào</b> đang xử lý nó. Chạy hai lần với số core
+        khác nhau:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">bash · trong 06-batch/practice</div>
+<pre><span class="k">source</span> env.sh
+<span class="k">python</span> 07_cluster_anatomy.py --cores 1
+<span class="k">python</span> 07_cluster_anatomy.py --cores 8</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">kết quả thật · local[8]</div>
+<pre>DRIVER  pid           : 82179
+master                : <span class="hl">local[8]</span>
+defaultParallelism    : <span class="hl">8</span>
+số executor đăng ký   : 1          <span class="dim">← local mode: driver kiêm luôn executor</span>
+
+data/pq/green/2021/* → <span class="hl">8 partition</span> khi vừa đọc
+
+partition |   số dòng | pid worker |   giây
+        0 |    86,737 |      82207 |   0.63
+        1 |    88,180 |      82204 |   0.63
+        2 |    84,503 |      82202 |   0.63
+        3 |    86,129 |      82203 |   0.67
+        4 |    83,827 |      82209 |   0.61
+        5 |    76,518 |      82206 |   0.56
+        6 |    64,572 |      82205 |   0.66
+        7 |         <span class="bad">0</span> |      82208 |   0.00   <span class="dim">← thư mục rỗng 2021/08</span>
+tổng dòng 570,466 | <span class="good">8 python worker</span>: [82202 … 82209]</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Tám <b>pid khác nhau</b>. Đó chính là executor của bạn, thu nhỏ: trong local mode PySpark
+        bật một tiến trình Python riêng cho mỗi core, và mỗi tiến trình ôm một partition.
+        Trên cụm thật, tám tiến trình này nằm trên tám máy khác nhau — còn lại y hệt.
+      </p>
+
+      <h3>Số core đổi cả cách chia file</h3>
+      <p>
+        Chạy lại với <code>--cores 1</code> và để ý dòng đầu: <b>cùng bộ file đó, Spark chỉ chia
+        thành 2 partition</b>. Spark không chia theo “mỗi file một partition”; nó gộp các file nhỏ
+        lại, và lấy <code>defaultParallelism</code> (= số core) làm sàn. Cụm to hơn → cùng dữ liệu
+        bị cắt nhỏ hơn.
+      </p>
+
+      <h3>Bằng chứng về song song</h3>
+      <p>
+        Script cố tình làm mỗi partition “nặng” thêm 1 giây, rồi đo thời gian thật. Tổng công việc
+        là như nhau — 8 partition × 1s — chỉ số core thay đổi:
+      </p>
+    </div>
+
+    <div class="bars">
+      <div class="bar-row">
+        <span class="bar-label">local[1]</span>
+        <span class="bar-track"><span class="bar-fill" style="width:100%;background:var(--alarm)"></span></span>
+        <span class="bar-val">8,6 s</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label">local[8]</span>
+        <span class="bar-track"><span class="bar-fill" style="width:12.8%;background:var(--executor)"></span></span>
+        <span class="bar-val">1,1 s</span>
+      </div>
+      <p class="fig-cap" style="margin-top:12px">
+        Cùng 8,5 giây CPU. Một core phải làm tuần tự hết; tám core chia nhau xong trong một
+        lượt — <b>nhanh gấp 7,7 lần</b>. Đây là toàn bộ lý do người ta dựng cụm.
+      </p>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Partition lệch nhau là kẻ giết hiệu năng</p>
+      <p>
+        Nhìn lại cột “số dòng”: partition to nhất 88.180 dòng, partition rỗng 0 dòng. Nếu một
+        partition to gấp 4 lần các partition kia, core nhận nó <b>vẫn đang chạy khi bảy core còn
+        lại đã rảnh</b> — bạn trả tiền cho tám máy nhưng chỉ một máy làm việc.
+      </p>
+      <p style="margin-bottom:0">
+        Cách chữa là <code>repartition(n)</code> — script có đo sẵn: sau khi chia lại, tám
+        partition đều tăm tắp 71.308 ± 2 dòng. Nhưng <code>repartition</code> là một lần
+        <span class="chip a">shuffle</span> toàn bộ dữ liệu qua mạng, nên chỉ làm khi phần được
+        bù lại chi phí đó.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">04</div>
+  <div class="step-body">
+    <p class="step-kicker">Lý thuyết · 10 phút</p>
+    <h2>RDD: tầng nằm dưới DataFrame</h2>
+
+    <div class="prose">
+      <p>
+        <b>RDD</b> = <em>Resilient Distributed Dataset</em> — một tập hợp đối tượng được chia
+        thành nhiều partition nằm rải trên cụm. Spark đời đầu chỉ có RDD; DataFrame xuất hiện
+        sau, như một lớp API đẹp đẽ <b>dựng trên chính RDD</b>.
+      </p>
+      <ul>
+        <li><b>DataFrame</b> có schema: Spark biết tên cột, kiểu dữ liệu, nên Catalyst tối ưu được.</li>
+        <li><b>RDD</b> chỉ là “một đống object Python”. Spark không biết bên trong có gì,
+          nên <b>không tối ưu được gì cả</b>.</li>
+      </ul>
+      <p>
+        Bất kỳ DataFrame nào cũng có thuộc tính <code>.rdd</code> để tụt xuống tầng dưới.
+        Khi đó mỗi dòng thành một đối tượng <code>Row</code>.
+      </p>
+
+      <h3>Ba phép dịch cần thuộc</h3>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>SQL</th><th>RDD</th><th>Hàm nhận gì → trả gì</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>WHERE</code></td>
+            <td><code>filter(f)</code></td>
+            <td>1 dòng → <code>True</code>/<code>False</code></td>
+          </tr>
+          <tr>
+            <td><code>SELECT</code> khóa nhóm</td>
+            <td><code>map(f)</code></td>
+            <td>1 dòng → cặp <code>(key, value)</code></td>
+          </tr>
+          <tr>
+            <td><code>GROUP BY</code> + <code>SUM</code>/<code>COUNT</code></td>
+            <td><code>reduceByKey(f)</code></td>
+            <td>2 value cùng key → 1 value gộp</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        Điểm cốt lõi của <code>reduceByKey</code>: Spark gọi hàm của bạn <b>theo chuỗi</b> — gộp
+        hai giá trị đầu, lấy kết quả gộp tiếp với giá trị thứ ba, cứ thế. Nên <b>kiểu dữ liệu vào
+        và ra bắt buộc phải giống nhau</b>. Ở đây là tuple <code>(tổng tiền, số chuyến)</code>:
+        cộng hai tuple ra một tuple.
+      </p>
+      <p>
+        Và chính <code>reduceByKey</code> là chỗ sinh ra <span class="chip a">shuffle</span>:
+        mọi bản ghi cùng khóa, từ mọi partition, phải về chung một partition mới gộp được.
+        Đó là lý do job có <b>hai stage</b> — giống hệt <code>GROUP BY</code> của Ngày 5,
+        chỉ là nay bạn tự tay viết ra nó.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">05</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành B · 30 phút</p>
+    <h2>Viết lại báo cáo doanh thu bằng RDD</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Cùng một câu hỏi, viết ba cách (SQL · DataFrame · RDD), kết quả phải
+      khớp tới từng xu, rồi so thời gian để biết cái giá của tầng thấp.
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · 08_rdds.py · bộ khung</div>
+<pre><span class="c"># chọn cột TRƯỚC khi .rdd — xuống RDD rồi thì Catalyst hết đường cắt cột giúp</span>
+rdd = df_green \
+    .select(<span class="s">'lpep_pickup_datetime'</span>, <span class="s">'PULocationID'</span>, <span class="s">'total_amount'</span>) \
+    .rdd
+
+<span class="c"># WHERE lpep_pickup_datetime >= '2021-01-01'</span>
+<span class="k">def</span> filter_outliers(row):
+    <span class="k">return</span> row.lpep_pickup_datetime &gt;= start
+
+<span class="c"># SELECT date_trunc('hour', ...), PULocationID  →  (key, value)</span>
+<span class="k">def</span> prepare_for_grouping(row):
+    hour = row.lpep_pickup_datetime.replace(minute=<span class="s">0</span>, second=<span class="s">0</span>, microsecond=<span class="s">0</span>)
+    <span class="k">return</span> ((hour, row.PULocationID), (row.total_amount <span class="k">or</span> <span class="s">0.0</span>, <span class="s">1</span>))
+
+<span class="c"># SUM(total_amount), COUNT(1) — vào (tiền, đếm), ra (tiền, đếm)</span>
+<span class="k">def</span> calculate_revenue(left, right):
+    <span class="k">return</span> (left[<span class="s">0</span>] + right[<span class="s">0</span>], left[<span class="s">1</span>] + right[<span class="s">1</span>])
+
+result = rdd \
+    .filter(filter_outliers) \
+    .map(prepare_for_grouping) \
+    .reduceByKey(calculate_revenue) \
+    .map(unwrap) \
+    .toDF(result_schema)</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Hai chi tiết nhỏ nhưng đáng tiền. <b>Một:</b> kết quả của <code>reduceByKey</code> là
+        tuple lồng tuple — <code>((giờ, zone), (tiền, đếm))</code> — nên cần một
+        <code>map(unwrap)</code> để dàn phẳng thành 4 cột. Dùng <code>namedtuple</code> thì
+        DataFrame giữ được tên cột, thay vì <code>_1 _2 _3 _4</code>.
+      </p>
+      <p>
+        <b>Hai:</b> khai báo <code>result_schema</code> tường minh. Không khai thì Spark phải
+        chạy thêm <em>một job phụ</em> chỉ để quét dữ liệu đoán kiểu — tốn một lượt đi qua
+        toàn bộ dữ liệu.
+      </p>
+    </div>
+
+    <div class="out">
+      <div class="out-head">kết quả thật · 570.466 dòng green, chạy hai lần liên tiếp</div>
+<pre>[RDD      ] 26.12s · <span class="bad">4.79s</span>
+[DataFrame]  0.79s · <span class="good">0.36s</span>
+[SQL      ]  0.30s · <span class="good">0.25s</span>
+số dòng: 251050 251050 251050 → <span class="good">khớp</span>
+tổng doanh thu: RDD 13,575,290.32 | SQL <span class="good">13,575,290.32</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Ba cách ra <b>cùng một kết quả</b>, nhưng bản RDD chậm hơn khoảng <b>13–19 lần</b>
+        (lần chạy đầu 26 giây là tính cả khởi động các worker Python). Lý do không phải
+        “RDD viết dở”, mà là hai thứ cộng lại:
+      </p>
+      <ul>
+        <li>
+          <b>Mỗi dòng phải vượt biên giới JVM → Python.</b> 570.466 dòng được serialize sang
+          Python, gọi hàm của bạn, rồi serialize ngược lại. Bản SQL chạy trọn vẹn trong JVM.
+        </li>
+        <li>
+          <b>Catalyst mù.</b> Với DataFrame nó cắt cột, đẩy filter xuống tận tầng đọc parquet,
+          gom cục bộ trước khi shuffle. Với RDD nó không biết bên trong hàm Python có gì nên
+          không dám tối ưu gì cả.
+        </li>
+      </ul>
+
+      <h3>Bằng chứng: so hai execution plan</h3>
+    </div>
+
+    <div class="out">
+      <div class="out-head">plan bản SQL — Catalyst nhìn thấy mọi thứ</div>
+<pre>HashAggregate(keys=[hour, PULocationID], functions=[sum(total_amount), count(1)])
++- <span class="bad">Exchange hashpartitioning(...)</span>              <span class="dim">← shuffle</span>
+   +- <span class="good">HashAggregate(... partial_sum, partial_count)</span>  <span class="dim">← gom trước, bớt dữ liệu phải xáo</span>
+      +- Project [PULocationID, total_amount, date_trunc(hour, ...)]
+         +- <span class="good">Filter (lpep_pickup_datetime &gt;= 2021-01-01)</span>
+            +- FileScan parquet [lpep_pickup_datetime, PULocationID, total_amount]
+               <span class="good">PushedFilters: [GreaterThanOrEqual(lpep_pickup_datetime, ...)]</span>
+               <span class="dim">ReadSchema: chỉ 3 cột trong số 20</span></pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">plan bản RDD — Catalyst không thấy gì</div>
+<pre>*(1) <span class="bad">Scan ExistingRDD</span>[hour, zone, revenue, count]
+
+<span class="dim">Toàn bộ filter/map/reduceByKey biến mất khỏi plan. Với Spark SQL, đây chỉ là
+"một RDD từ đâu đó rơi xuống". Muốn thấy chuỗi thật phải dùng toDebugString():</span>
+
+(10) PythonRDD[97]
+ |   MapPartitionsRDD[96]
+ |   <span class="bad">ShuffledRDD[95] at partitionBy</span>        <span class="dim">← ranh giới 2 stage, chính là shuffle</span>
+ +-(10) PairwiseRDD[94] at reduceByKey
+    |   PythonRDD[93] at reduceByKey
+    |   FileScanRDD[9]</pre>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Kết luận rút ra</p>
+      <p style="margin-bottom:0">
+        <b>Đừng dùng RDD cho việc hằng ngày.</b> Giá trị của bài tập này là thấy tận mắt
+        <code>GROUP BY</code> bên dưới chỉ là <code>map</code> + shuffle theo khóa +
+        <code>reduceByKey</code>. Biết thế rồi thì đọc execution plan dễ hơn hẳn — và khi
+        phỏng vấn hỏi “shuffle là gì”, bạn mô tả được cơ chế chứ không chỉ đọc định nghĩa.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">06</div>
+  <div class="step-body">
+    <p class="step-kicker">Cái bẫy của hôm nay · 10 phút</p>
+    <h2>Xuống RDD là mất múi giờ của session</h2>
+
+    <div class="prose">
+      <p>
+        Lần chạy đầu tiên của script này ra kết quả <b>lệch</b>: RDD 251.050 dòng còn SQL
+        250.761 dòng, tổng tiền chênh hơn 10.000 USD. Cùng dữ liệu, cùng công thức. Nguyên nhân
+        là một dòng tưởng vô hại — đặt múi giờ session như đã học ở Ngày 5:
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · dòng gây lệch</div>
+<pre>spark.conf.set(<span class="s">"spark.sql.session.timeZone"</span>, <span class="s">"America/New_York"</span>)</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>spark.sql.session.timeZone</code> chỉ chi phối <b>phía SQL/Catalyst</b>. Khi dữ liệu
+        vượt biên sang Python, Spark dựng đối tượng <code>datetime</code> theo
+        <b>múi giờ mặc định của JVM</b> — tức múi giờ của máy. Bước 8 trong script chứng minh
+        bằng cách đổi session timezone ba lần rồi xem bên nào nhúc nhích:
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>spark.sql.session.timeZone</th>
+            <th>SQL đọc ra</th>
+            <th>Python nhận được</th>
+            <th class="num">WHERE lọc còn</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>Asia/Ho_Chi_Minh</code> <span class="chip st">= JVM</span></td>
+            <td><code>2008-12-31 23:12:53</code></td>
+            <td><code>2008-12-31 23:12:53</code></td>
+            <td class="num">570.452</td>
+          </tr>
+          <tr>
+            <td><code>America/New_York</code></td>
+            <td><code>2008-12-31 11:12:53</code></td>
+            <td><code>2008-12-31 23:12:53</code></td>
+            <td class="num">570.034</td>
+          </tr>
+          <tr>
+            <td><code>UTC</code></td>
+            <td><code>2008-12-31 16:12:53</code></td>
+            <td><code>2008-12-31 23:12:53</code></td>
+            <td class="num">570.254</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Cột giữa đứng yên</p>
+      <p>
+        Phía SQL đổi theo session timezone. Phía Python <b>không hề nhúc nhích</b> — luôn theo
+        JVM. Nghĩa là <code>row.lpep_pickup_datetime.replace(minute=0)</code> của bạn đang
+        cắt giờ theo một múi giờ khác với <code>date_trunc</code> của SQL, và không có cảnh báo
+        nào cả. Job vẫn chạy, chỉ sai âm thầm.
+      </p>
+      <p style="margin-bottom:0">
+        <b>Cách tránh:</b> xử lý thời gian bằng SQL/DataFrame <em>trước</em> khi xuống RDD, hoặc
+        làm việc bằng UTC tường minh cả hai phía. Đây là họ hàng gần của bài học Ngày 5
+        (<code>date_trunc</code> theo múi giờ máy chạy) — nhưng tệ hơn, vì lần này hai nửa
+        của cùng một job không còn đồng ý với nhau.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="step">
+  <div class="step-no">07</div>
+  <div class="step-body">
+    <p class="step-kicker">Thực hành C · 25 phút</p>
+    <h2>mapPartitions: lý do duy nhất còn dùng RDD</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Chạy một “model ML” trên toàn bộ dữ liệu theo từng lô, và đo xem
+      <code>mapPartitions</code> thật sự nhanh hơn <code>map</code> ở chỗ nào.
+    </div>
+
+    <div class="prose">
+      <p>
+        <code>map</code> nhận <b>một dòng</b>, trả một dòng. <code>mapPartitions</code> nhận
+        <b>cả một partition</b> (dạng iterator), trả về một iterator. Dùng khi hàm của bạn cần
+        nhiều dòng cùng lúc, hoặc có một chi phí cố định không muốn trả lại mỗi dòng:
+      </p>
+      <ul>
+        <li>Model ML predict theo <b>lô</b>, không predict từng dòng.</li>
+        <li>Mở <b>một</b> kết nối database cho cả partition, thay vì mở lại 570.466 lần.</li>
+        <li>Dữ liệu 1 TB không vừa RAM, nhưng từng partition 100 MB thì vừa.</li>
+      </ul>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · 09_map_partitions.py</div>
+<pre><span class="k">def</span> model_predict(df):
+    <span class="c"># giả vờ đã train xong: 5 phút cho mỗi dặm</span>
+    <span class="k">return</span> df.trip_distance * <span class="s">5</span>
+
+<span class="k">def</span> apply_model_in_batch(rows):
+    df = pd.DataFrame(rows, columns=columns)      <span class="c"># partition → pandas</span>
+    df[<span class="s">'predicted_duration'</span>] = model_predict(df)   <span class="c"># predict cả lô một lần</span>
+
+    <span class="c"># KHÔNG return df được — phải trả iterator từng dòng</span>
+    <span class="k">for</span> row <span class="k">in</span> df.itertuples():
+        <span class="k">yield</span> row
+
+df_predicts = duration_rdd \
+    .mapPartitions(apply_model_in_batch) \
+    .toDF() \
+    .drop(<span class="s">'Index'</span>)        <span class="c"># cột thừa do itertuples() sinh ra</span></pre>
+    </div>
+
+    <div class="prose">
+      <h3>Ba cái bẫy khi gõ</h3>
+      <ul>
+        <li>
+          <code>len(partition)</code> <b>lỗi</b> — partition là iterator
+          (<code>itertools.chain</code>), không phải list, và chỉ duyệt được <b>một lần</b>.
+        </li>
+        <li>
+          Trả về <code>1</code> thay vì <code>[1]</code> <b>lỗi</b> — Spark đòi một thứ
+          duyệt được. Mẹo kiểm tra số partition: <code>mapPartitions(lambda p: [1]).collect()</code>
+          ra bao nhiêu số 1 thì có bấy nhiêu partition.
+        </li>
+        <li>
+          <code>pd.DataFrame(rows)</code> nạp <b>toàn bộ</b> partition vào RAM của executor.
+          Partition quá to thì phải <code>repartition</code> hoặc cắt iterator thành lô nhỏ.
+        </li>
+      </ul>
+    </div>
+
+    <div class="out">
+      <div class="out-head">kết quả thật · 570.466 dòng, 10 partition</div>
+<pre>số dòng từng partition:
+[65053, 65774, 65012, 63581, 64393, 63649, 61044, 57388, 48429, <span class="bad">16143</span>]
+→ lệch <span class="bad">4.1 lần</span> giữa partition to nhất và nhỏ nhất
+
++------------+-------------+------------------+
+|PULocationID|trip_distance|predicted_duration|
++------------+-------------+------------------+
+|         183|         1.69|              8.45|
+|          80|          4.8|              24.0|
++------------+-------------+------------------+
+
+[mapPartitions + pandas] <span class="hl">23.89s</span>  (570,466 dòng)
+[map từng dòng]          <span class="hl">24.50s</span>  (570,466 dòng)</pre>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Kết quả ngược với trực giác — và đây mới là bài học</p>
+      <p>
+        <code>mapPartitions</code> <b>không</b> nhanh hơn: 23,89s so với 24,50s, chênh 2%.
+        Vì chi phí thống trị là chuyện serialize 570.466 dòng qua biên giới JVM ↔ Python —
+        <b>cả hai cách đều phải trả như nhau</b>. Gói dữ liệu thành pandas không làm biên giới
+        đó rẻ đi.
+      </p>
+      <p style="margin-bottom:0">
+        <code>mapPartitions</code> chỉ thắng khi có <b>chi phí cố định mỗi lần gọi hàm</b>.
+        Script giả lập đúng chuyện đó: mỗi lần “nạp model” tốn 20 ms.
+      </p>
+    </div>
+
+    <div class="out">
+      <div class="out-head">kết quả thật · 264 dòng mẫu, mỗi lần nạp model 20 ms</div>
+<pre>mapPartitions: <span class="good">0.17s</span>   <span class="dim">nạp model  10 lần (= số partition)</span>
+map          : <span class="bad">0.94s</span>   <span class="dim">nạp model 264 lần (= số dòng)</span>
+                      <span class="dim">→ nhanh gấp 5,5 lần, và khoảng cách giãn tuyến tính
+                        theo số dòng: cả 570.466 dòng thì map tốn ~3,2 giờ CPU
+                        (≈24 phút trên 8 core), mapPartitions chỉ 0,2 giây</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Nhớ quy tắc gọn thế này: <b><code>mapPartitions</code> không làm việc tính toán nhanh
+        lên — nó làm số lần chuẩn bị ít đi.</b> Hàm không có bước chuẩn bị thì đừng đổi.
+      </p>
+    </div>
+  </div>
+</section>
+
+<div class="checkpoint">
+  <p class="eyebrow">Checkpoint Ngày 6</p>
+  <h2>Tự kiểm tra trước khi sang Ngày 7</h2>
+  <p class="standfirst" style="font-size:17.5px;margin-bottom:28px">
+    Gập tài liệu lại. Lấy giấy. Nếu trả lời trôi chảy bốn câu dưới đây thì hôm nay đạt.
+  </p>
+
+  <div class="qa">
+    <p class="q">1 · Vẽ lại sơ đồ cụm và nói mỗi hộp làm gì.</p>
+    <p class="a">
+      Bốn hộp: <span class="chip d">driver</span> gửi job bằng <code>spark-submit</code> →
+      <span class="chip m">master</span> (cluster manager) chia việc và theo dõi sức khỏe →
+      <span class="chip e">executor</span> kéo partition về xử lý →
+      <span class="chip st">kho S3/GCS</span> nằm ngoài cụm, đọc vào ghi ra. Executor chết thì
+      master giao việc lại cho máy khác; master chết thì job chết.
+    </p>
+  </div>
+
+  <div class="qa">
+    <p class="q">2 · Giải thích partition bằng lời của mình.</p>
+    <p class="a">
+      Partition là <b>đơn vị chia việc</b> — thường là một file parquet. Một partition = một task,
+      một task chạy trên một core của một executor tại một thời điểm. Số partition quyết định mức
+      song song tối đa; partition lệch nhau làm cả cụm phải chờ kẻ chậm nhất; shuffle là lúc dữ
+      liệu phải sắp xếp lại giữa các partition và là chỗ đắt nhất của mọi job.
+    </p>
+  </div>
+
+  <div class="qa">
+    <p class="q">3 · Viết <code>GROUP BY</code> bằng ba thao tác RDD.</p>
+    <p class="a">
+      <code>filter</code> (= <code>WHERE</code>) → <code>map</code> thành cặp
+      <code>(key, value)</code> (= chọn khóa nhóm) → <code>reduceByKey</code>
+      (= <code>SUM</code>/<code>COUNT</code>). Hàm reduce phải nhận hai value và trả về
+      <b>cùng kiểu</b>, vì Spark gọi nó theo chuỗi. <code>reduceByKey</code> sinh ra shuffle,
+      nên job có hai stage.
+    </p>
+  </div>
+
+  <div class="qa">
+    <p class="q">4 · Khi nào dùng <code>mapPartitions</code> thay <code>map</code>?</p>
+    <p class="a">
+      Khi hàm có <b>chi phí cố định mỗi lần gọi</b> (nạp model, mở kết nối DB) hoặc cần nhiều
+      dòng cùng lúc (predict theo lô). Nó không làm phép tính nhanh hơn — đo thật chỉ chênh 2% —
+      mà làm số lần chuẩn bị giảm từ “mỗi dòng một lần” xuống “mỗi partition một lần”.
+      Đánh đổi: cả partition phải vừa RAM executor.
+    </p>
+  </div>
+
+  <details>
+    <summary>Câu hỏi phỏng vấn thường gặp từ phần này</summary>
+    <div class="details-body">
+      <p>
+        <b>“Sự khác nhau giữa RDD và DataFrame?”</b> — RDD là tập object phân tán, không schema,
+        Catalyst không tối ưu được. DataFrame có schema nên được cắt cột, đẩy filter xuống tầng
+        đọc file, gom cục bộ trước shuffle. Trong PySpark, RDD còn phải trả thêm phí serialize
+        JVM ↔ Python mỗi dòng — đo thật trên 570 nghìn dòng: chậm hơn 13–19 lần.
+      </p>
+      <p>
+        <b>“Vì sao <code>collect()</code> nguy hiểm?”</b> — Nó kéo toàn bộ dữ liệu từ mọi executor
+        về RAM của driver. Driver thường là máy nhỏ nhất trong cụm. Dùng <code>take(n)</code>,
+        hoặc ghi thẳng ra kho dữ liệu.
+      </p>
+      <p>
+        <b>“Tăng số executor mà job không nhanh lên, vì sao?”</b> — Thường là do số partition ít
+        hơn số core (executor ngồi chơi), hoặc partition lệch nhau nên một task kéo dài mãi, hoặc
+        nút cổ chai nằm ở shuffle/ghi file chứ không phải CPU. Mở Spark UI xem phân bố thời gian
+        task trong stage.
+      </p>
+      <p style="margin-bottom:0">
+        <b>“Vì sao giờ ít ai dùng HDFS?”</b> — Data locality mất giá khi cụm và kho nằm cùng data
+        center; tách storage khỏi compute cho phép tắt cụm mà vẫn giữ dữ liệu, trả tiền theo giờ
+        thay vì nuôi máy 24/7.
+      </p>
+    </div>
+  </details>
+
+  <details>
+    <summary>Ba điều script đo được mà video khóa học không có</summary>
+    <div class="details-body">
+      <p>
+        <b>Số core đổi cả số partition.</b> Cùng bộ file green 2021: <code>local[1]</code> cho 2
+        partition, <code>local[8]</code> cho 8. Spark lấy <code>defaultParallelism</code> làm sàn
+        khi gộp file nhỏ — nên “số partition” không phải thuộc tính của dữ liệu, mà của
+        dữ liệu <em>cộng với</em> cụm đang chạy.
+      </p>
+      <p>
+        <b><code>mapPartitions</code> không tự nhanh hơn.</b> 23,89s so với 24,50s. Video dùng nó
+        để minh họa cách áp model, không hứa nhanh hơn — nhưng rất dễ nhớ nhầm thành “tối ưu
+        hiệu năng”.
+      </p>
+      <p style="margin-bottom:0">
+        <b>Partition rỗng vẫn tốn một task.</b> Thư mục rác <code>data/pq/green/2021/08</code>
+        (di sản từ Ngày 4) tạo ra một partition 0 dòng — vẫn được cấp một task, một worker,
+        một lượt lên lịch.
+      </p>
+    </div>
+  </details>
+</div>
+
+<div class="closing">
+  <p>
+    <b>Ngày mai — Ngày 7:</b> đưa đúng những thứ hôm nay lên cụm thật. Spark đọc ghi Google Cloud
+    Storage (chính là hộp <span class="chip st">kho dữ liệu</span> trong sơ đồ), dựng một cụm
+    standalone để thấy <span class="chip m">master</span> và <span class="chip e">executor</span>
+    thành hai tiến trình tách rời, rồi <code>spark-submit --master yarn</code> để gặp cluster
+    manager của thế giới Hadoop.
+  </p>
+  <p style="margin-bottom:0;color:var(--muted);font-family:var(--mono);font-size:12.5px">
+    Script: 06-batch/practice/07_cluster_anatomy.py · 08_rdds.py · 09_map_partitions.py ·
+    Số đo lấy từ PySpark 4.2.0 trên green 2021/01–07 (570.466 dòng)
+  </p>
+</div>
+
+</div>

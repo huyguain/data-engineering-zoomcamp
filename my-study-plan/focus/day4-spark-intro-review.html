@@ -1,0 +1,1455 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spark: Đọc, Lười, Chia nhỏ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap">
+
+<style>
+:root {
+  /* nền + chữ */
+  --paper:      #F5F6F4;
+  --surface:    #FFFFFF;
+  --surface-2:  #ECEEEA;
+  --ink:        #171B21;
+  --ink-soft:   #3A414C;
+  --muted:      #656D79;
+  --rule:       #DCDFDA;
+  --rule-strong:#C3C8C0;
+
+  /* màu mang nghĩa — không dùng để trang trí */
+  --green:      #0F6E45;   /* bảng green taxi */
+  --yellow:     #A8700A;   /* bảng yellow taxi */
+  --shuffle:    #AD2B46;   /* Exchange / shuffle — thao tác đắt */
+  --broadcast:  #1F6480;   /* broadcast — thao tác rẻ */
+  --green-bg:   #E4F0E9;
+  --yellow-bg:  #F6EEDB;
+  --shuffle-bg: #F7E5E8;
+  --broadcast-bg:#E2EEF3;
+
+  --code-bg:    #1A1F27;
+  --code-fg:    #E6E9EC;
+  --code-dim:   #8C96A3;
+
+  --display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --measure: 70ch;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper:      #12161C;
+    --surface:    #181D25;
+    --surface-2:  #202731;
+    --ink:        #E8EBE9;
+    --ink-soft:   #C2C8CC;
+    --muted:      #8E97A3;
+    --rule:       #2A313B;
+    --rule-strong:#3B4451;
+
+    --green:      #56C18C;
+    --yellow:     #E0B257;
+    --shuffle:    #F0788E;
+    --broadcast:  #6CC0E0;
+    --green-bg:   #16302460;
+    --yellow-bg:  #332A1060;
+    --shuffle-bg: #3A1C2460;
+    --broadcast-bg:#13303C60;
+
+    --code-bg:    #0D1117;
+    --code-fg:    #E6E9EC;
+    --code-dim:   #78828F;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper:      #12161C;
+  --surface:    #181D25;
+  --surface-2:  #202731;
+  --ink:        #E8EBE9;
+  --ink-soft:   #C2C8CC;
+  --muted:      #8E97A3;
+  --rule:       #2A313B;
+  --rule-strong:#3B4451;
+
+  --green:      #56C18C;
+  --yellow:     #E0B257;
+  --shuffle:    #F0788E;
+  --broadcast:  #6CC0E0;
+  --green-bg:   #16302460;
+  --yellow-bg:  #332A1060;
+  --shuffle-bg: #3A1C2460;
+  --broadcast-bg:#13303C60;
+
+  --code-bg:    #0D1117;
+  --code-fg:    #E6E9EC;
+  --code-dim:   #78828F;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17.5px;
+  line-height: 1.68;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 24px 120px;
+}
+
+/* ---------- mở đầu ---------- */
+
+.masthead {
+  padding: 72px 0 40px;
+  border-bottom: 2px solid var(--ink);
+}
+.eyebrow {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 18px;
+}
+h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(2.5rem, 6.5vw, 4.1rem);
+  line-height: 0.98;
+  letter-spacing: -0.028em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+.standfirst {
+  max-width: var(--measure);
+  font-size: 1.14rem;
+  color: var(--ink-soft);
+  margin: 0;
+}
+.standfirst strong { font-weight: 600; color: var(--ink); }
+
+.meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 30px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.meta-strip b {
+  font-weight: 500;
+  color: var(--ink-soft);
+}
+
+/* ---------- bố cục chung ---------- */
+
+.prose { max-width: var(--measure); }
+
+h2 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(1.55rem, 3.2vw, 2.05rem);
+  line-height: 1.12;
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  text-wrap: balance;
+}
+h3 {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.18rem;
+  letter-spacing: -0.01em;
+  margin: 38px 0 10px;
+  text-wrap: balance;
+}
+p { margin: 0 0 18px; max-width: var(--measure); }
+ul, ol { max-width: var(--measure); padding-left: 1.25em; margin: 0 0 18px; }
+li { margin-bottom: 9px; }
+li::marker { color: var(--muted); }
+a { color: var(--broadcast); text-underline-offset: 3px; }
+
+code {
+  font-family: var(--mono);
+  font-size: 0.855em;
+  background: var(--surface-2);
+  padding: 0.12em 0.34em;
+  border-radius: 3px;
+  word-break: break-word;
+}
+.lead-in {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.08rem;
+  color: var(--ink);
+}
+
+/* ---------- các bước ---------- */
+
+.step {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  gap: 0 28px;
+  padding: 52px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.step-no {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--shuffle);
+  padding-top: 11px;
+  position: sticky;
+  top: 20px;
+  align-self: start;
+}
+.step-body { min-width: 0; }
+.step-kicker {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+.step-aim {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  background: var(--surface-2);
+  border-left: 2px solid var(--rule-strong);
+  padding: 10px 14px;
+  margin: 18px 0 26px;
+  max-width: var(--measure);
+}
+.step-aim b { color: var(--ink); font-weight: 700; }
+
+@media (max-width: 720px) {
+  .step { grid-template-columns: 1fr; gap: 0; }
+  .step-no { position: static; padding: 0 0 10px; }
+}
+
+/* ---------- code ---------- */
+
+.code {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  border-radius: 6px;
+  margin: 0 0 20px;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+}
+.code-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--code-dim);
+  padding: 9px 16px 0;
+}
+.code pre {
+  margin: 0;
+  padding: 12px 16px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.62;
+  tab-size: 4;
+}
+.code .c { color: var(--code-dim); font-style: italic; }
+.code .k { color: #FF9F7A; }
+.code .s { color: #9BD47E; }
+.code .n { color: #7FC8E8; }
+.code .hl { color: #FF8FA5; font-weight: 700; }
+
+.out {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  margin: 0 0 22px;
+  overflow: hidden;
+}
+.out-head {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--surface-2);
+}
+.out pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.out pre b { color: var(--ink); font-weight: 700; }
+.out pre .sh { color: var(--shuffle); font-weight: 700; }
+.out pre .bc { color: var(--broadcast); font-weight: 700; }
+
+/* ---------- panel ---------- */
+
+.panel {
+  border: 1px solid var(--rule-strong);
+  border-radius: 6px;
+  padding: 20px 22px;
+  margin: 26px 0;
+  max-width: var(--measure);
+  background: var(--surface);
+}
+.panel > :last-child { margin-bottom: 0; }
+.panel-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+  font-weight: 700;
+}
+.panel.warn { border-color: var(--shuffle); background: var(--shuffle-bg); }
+.panel.warn .panel-label { color: var(--shuffle); }
+.panel.note { border-color: var(--broadcast); background: var(--broadcast-bg); }
+.panel.note .panel-label { color: var(--broadcast); }
+.panel.ask { border-style: dashed; }
+.panel.ask .panel-label { color: var(--muted); }
+
+/* ---------- bảng ---------- */
+
+.table-wrap { overflow-x: auto; margin: 0 0 24px; max-width: 100%; }
+table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 480px;
+  font-size: 14.5px;
+  font-variant-numeric: tabular-nums;
+}
+caption {
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding-bottom: 10px;
+}
+th {
+  text-align: left;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  padding: 9px 14px 9px 0;
+  border-bottom: 1.5px solid var(--ink);
+  vertical-align: bottom;
+}
+td {
+  padding: 10px 14px 10px 0;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+td code { background: none; padding: 0; color: var(--ink); }
+td.num { text-align: right; font-family: var(--mono); font-size: 13px; }
+tr:last-child td { border-bottom: none; }
+
+/* ---------- hình ---------- */
+
+figure {
+  margin: 30px 0;
+  padding: 0;
+}
+figure svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+figcaption {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 12px;
+  max-width: var(--measure);
+  line-height: 1.55;
+}
+.fig-frame {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  padding: 20px 18px;
+  overflow-x: auto;
+}
+.fig-frame svg { min-width: 560px; }
+
+/* ---------- details ---------- */
+
+details {
+  border: 1px dashed var(--rule-strong);
+  border-radius: 6px;
+  padding: 0;
+  margin: 0 0 24px;
+  max-width: var(--measure);
+}
+summary {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  padding: 13px 18px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "▸ "; color: var(--shuffle); }
+details[open] summary::before { content: "▾ "; }
+details[open] summary { border-bottom: 1px dashed var(--rule-strong); }
+.details-body { padding: 18px 18px 2px; }
+.details-body .code { max-width: none; }
+details:focus-within { outline: 2px solid var(--broadcast); outline-offset: 2px; }
+summary:focus-visible { outline: 2px solid var(--broadcast); outline-offset: -2px; }
+
+/* ---------- chip ---------- */
+
+.chip {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  vertical-align: 1px;
+}
+.chip.g { color: var(--green); background: var(--green-bg); }
+.chip.y { color: var(--yellow); background: var(--yellow-bg); }
+.chip.s { color: var(--shuffle); background: var(--shuffle-bg); }
+.chip.b { color: var(--broadcast); background: var(--broadcast-bg); }
+
+/* ---------- kết thúc ---------- */
+
+.checkpoint {
+  margin-top: 56px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 34px 32px;
+  background: var(--surface);
+}
+.checkpoint h2 { margin-bottom: 18px; }
+.checkpoint > :last-child { margin-bottom: 0; }
+
+.closing {
+  margin-top: 56px;
+  padding-top: 26px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
+</style>
+<div class="page">
+
+<header class="masthead">
+  <p class="eyebrow">Ngày 4 · Module 06-batch · Ôn tập</p>
+  <h1>Spark: Đọc,<br>Lười, Chia nhỏ</h1>
+  <p class="standfirst">
+    Ngày 4 có vẻ chỉ là “đọc file rồi in schema”. Thực ra nó chứa <strong>năm ý tưởng nền</strong>
+    mà mọi ngày Spark sau đều dựa vào: Spark là một <i>engine</i>, schema phải tự nắm,
+    dữ liệu được <i>chia thành partition</i>, mọi thứ đều <i>lười</i> cho tới khi có action,
+    và Parquet là định dạng “nhà” của data lake. Trang này giải thích từng ý — kèm chính
+    những con số bạn đã đo trên máy mình.
+  </p>
+  <div class="meta-strip">
+    <span><b>Đọc:</b> 01-introduction · 02-introduction-to-spark · 04-first-look · 05-dataframes · 06-preparing-taxi-data</span>
+    <span><b>Code:</b> 06-batch/practice/01 → 04</span>
+    <span><b>Môi trường:</b> PySpark 4.2.0 · OpenJDK 17 · local[*] · 10 core</span>
+  </div>
+</header>
+
+<!-- ============================================================ 00 -->
+<section class="step">
+  <div class="step-no">00</div>
+  <div class="step-body">
+    <p class="step-kicker">Bức tranh tổng</p>
+    <h2>Năm câu cần nhớ</h2>
+    <div class="prose">
+      <p>Nếu chỉ được giữ lại năm câu từ Ngày 4, hãy giữ năm câu này. Các mục sau giải thích từng câu.</p>
+      <ol>
+        <li><b>Spark là engine xử lý phân tán.</b> Nó kéo dữ liệu từ lake về các executor, xử lý, rồi ghi kết quả ra chỗ khác. Bản thân nó không phải nơi lưu dữ liệu. <i>(mục 01–02)</i></li>
+        <li><b>CSV không mang kiểu dữ liệu.</b> Mặc định mọi cột là <code>string</code>. Bạn phải tự khai schema, hoặc trả giá bằng một lần quét toàn file để Spark đoán. <i>(mục 03)</i></li>
+        <li><b>Partition là đơn vị song song.</b> Một partition = một task = một core. Chỉ có một partition thì chỉ một core làm việc, các core còn lại ngồi chơi. <i>(mục 04)</i></li>
+        <li><b>Transformation thì lười, action mới chạy.</b> <code>select</code>, <code>filter</code>, <code>repartition</code> chỉ <i>ghi lại công thức</i>. <code>show</code>, <code>count</code>, <code>write</code> mới bắt Spark nấu. <i>(mục 05)</i></li>
+        <li><b>Parquet lưu theo cột và mang schema theo.</b> Nhờ vậy Spark chỉ đọc đúng cột cần, bỏ qua được cả khối dữ liệu, và không bao giờ phải đoán kiểu lại. <i>(mục 06)</i></li>
+      </ol>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Một hình ảnh để mang theo cả ngày</p>
+      <p style="margin-bottom:0">
+        Hãy nghĩ <code>df</code> <b>không phải là dữ liệu</b> mà là <b>một tờ công thức nấu ăn</b>.
+        Mỗi lần gọi <code>select</code> hay <code>filter</code>, bạn viết thêm một dòng vào công thức.
+        Chưa có nồi nào được bắc lên bếp. Chỉ khi gọi <code>show()</code> hay <code>write()</code>,
+        đầu bếp (Spark) mới đọc <i>cả tờ công thức</i>, tìm cách nấu nhanh nhất, rồi mới bắt đầu.
+        Hiểu được hình ảnh này là hiểu 80% hành vi “lạ” của Spark.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 01 -->
+<section class="step">
+  <div class="step-no">01</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 01–02 · batch & Spark là gì</p>
+    <h2>Batch, streaming, và chỗ đứng của Spark</h2>
+
+    <div class="prose">
+      <h3>Batch khác streaming ở đâu</h3>
+      <p>
+        <b>Batch</b>: gom dữ liệu thành một khối (cả ngày 15/1, từ 00:00 tới 23:59), rồi
+        <i>một</i> job xử lý cả khối đó trong một lần. <b>Streaming</b>: mỗi sự kiện (khách vừa
+        lên xe) được xử lý ngay khi nó tới.
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:24%">Khía cạnh</th><th>Batch</th><th>Streaming</th></tr></thead>
+        <tbody>
+          <tr><td><b>Chạy khi nào</b></td><td>Theo lịch: hằng ngày (phổ biến nhất), hằng giờ, hằng tuần</td><td>Liên tục</td></tr>
+          <tr><td><b>Độ trễ</b></td><td>Cao. Chạy hằng giờ, mỗi lượt mất 20 phút → dữ liệu đầu giờ trước có thể chờ gần <b>90 phút</b></td><td>Vài giây</td></tr>
+          <tr><td><b>Chạy lại khi lỗi</b></td><td>Dễ và an toàn: job có tham số khoảng thời gian, cứ chạy lại khoảng đó</td><td>Khó: phải lo trạng thái, thứ tự, trùng lặp</td></tr>
+          <tr><td><b>Mở rộng</b></td><td>Máy to hơn, hoặc thêm máy vào cụm</td><td>Phức tạp hơn</td></tr>
+          <tr><td><b>Tỷ lệ thực tế</b></td><td>~80% job dữ liệu</td><td>~10–20%</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="prose">
+      <p>
+        Bạn đã làm batch từ trước mà không gọi tên: script Python nạp CSV vào Postgres ở tuần 1
+        (chạy một lần mỗi tháng dữ liệu), các model dbt ở Ngày 3. Spark chỉ là thêm một công cụ
+        batch nữa — và Airflow/Kestra là thứ xâu các job đó thành pipeline.
+      </p>
+
+      <h3>“Engine” nghĩa là gì</h3>
+      <p>
+        Spark <b>không lưu</b> dữ liệu. Dữ liệu nằm ở data lake (S3, GCS, hay thư mục
+        <code>data/</code> của bạn). Spark kéo dữ liệu về các <b>executor</b> (máy/tiến trình
+        làm việc), xử lý trong RAM, rồi ghi kết quả trở lại lake hoặc warehouse. Có thể chạy
+        trên một laptop, hoặc trên cụm hàng nghìn máy — code không đổi.
+      </p>
+
+      <h3>Khi nào dùng Spark, khi nào dùng SQL</h3>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Quy tắc của giảng viên</p>
+      <p>
+        <b>Dùng SQL khi có thể, dùng Spark khi không thể.</b>
+      </p>
+      <ul style="margin-bottom:0">
+        <li>Dữ liệu ở warehouse (BigQuery) và việc cần làm diễn đạt được bằng SQL → cứ dùng SQL.</li>
+        <li>Dữ liệu chỉ là đống file trên lake nhưng vẫn là SQL được → Presto/Athena/Trino, hoặc BigQuery external table.</li>
+        <li>Logic quá phức tạp cho một câu SQL, cần chia module, cần <b>unit test</b>, hoặc là machine learning (train/áp model) → <b>Spark</b>.</li>
+      </ul>
+    </div>
+
+    <div class="prose">
+      <p>
+        Spark viết bằng Scala. PySpark là lớp vỏ Python bọc bên ngoài — và cách nó “bọc” là lý
+        do bạn phải có file <code>env.sh</code>. Mục sau giải thích.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 02 -->
+<section class="step">
+  <div class="step-no">02</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 03 · cài đặt</p>
+    <h2>Chuyện gì xảy ra khi bạn gõ <code>getOrCreate()</code></h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Hiểu vì sao cần Java, vì sao cần ba biến môi trường trong
+      <code>env.sh</code>, và <code>local[*]</code> thực sự là gì.
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · đoạn mở đầu mọi script</div>
+<pre>spark = (
+    SparkSession.builder
+    .master(<span class="s">"local[*]"</span>)     <span class="c"># chạy trên máy này, dùng mọi core</span>
+    .appName(<span class="s">"First Look"</span>)   <span class="c"># tên hiện trên Spark UI</span>
+    .getOrCreate()          <span class="c"># có session rồi thì lấy lại, chưa có thì tạo</span>
+)</pre>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 300" role="img" aria-label="Sơ đồ PySpark: tiến trình Python của bạn điều khiển một JVM qua cầu Py4J; trong JVM có driver và các luồng executor, mỗi luồng một core; chỉ khi có UDF, executor mới gọi sang tiến trình Python worker">
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+
+          <!-- python driver -->
+          <g font-family="var(--mono)" fill="currentColor">
+            <rect x="8" y="40" width="190" height="96" rx="4" fill="var(--yellow-bg)" stroke="var(--yellow)" stroke-width="1.4"/>
+            <text x="103" y="64" text-anchor="middle" font-size="12" font-weight="700">Tiến trình Python</text>
+            <text x="103" y="84" text-anchor="middle" font-size="10.5" fill="var(--muted)">script .py của bạn</text>
+            <text x="103" y="102" text-anchor="middle" font-size="10.5" fill="var(--muted)">PYSPARK_DRIVER_PYTHON</text>
+            <text x="103" y="120" text-anchor="middle" font-size="10.5" fill="var(--muted)">chỉ ra lệnh, không xử lý</text>
+          </g>
+
+          <!-- bridge -->
+          <g stroke="currentColor" stroke-width="1.3" marker-end="url(#a2)" color="var(--muted)">
+            <line x1="200" y1="88" x2="262" y2="88"/>
+          </g>
+          <text x="231" y="80" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">Py4J</text>
+
+          <!-- JVM -->
+          <rect x="266" y="12" width="486" height="190" rx="4" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text x="280" y="32" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.2" fill="var(--muted)">JVM (cần JAVA_HOME → OpenJDK 17)</text>
+
+          <g font-family="var(--mono)" fill="currentColor">
+            <rect x="282" y="46" width="150" height="70" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="357" y="72" text-anchor="middle" font-size="12" font-weight="700">Driver</text>
+            <text x="357" y="90" text-anchor="middle" font-size="10.5" fill="var(--muted)">lập kế hoạch</text>
+            <text x="357" y="106" text-anchor="middle" font-size="10.5" fill="var(--muted)">chia task</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#a2)" color="var(--muted)">
+            <line x1="434" y1="81" x2="470" y2="81"/>
+          </g>
+
+          <g font-family="var(--mono)" font-size="10.5" fill="currentColor">
+            <rect x="474" y="46" width="262" height="70" rx="3" fill="none" stroke="currentColor" stroke-width="1.2"/>
+            <text x="605" y="64" text-anchor="middle" font-size="12" font-weight="700">Executor (local[*])</text>
+            <rect x="486" y="76" width="34" height="28" rx="2" fill="var(--broadcast-bg)" stroke="var(--broadcast)"/>
+            <rect x="526" y="76" width="34" height="28" rx="2" fill="var(--broadcast-bg)" stroke="var(--broadcast)"/>
+            <rect x="566" y="76" width="34" height="28" rx="2" fill="var(--broadcast-bg)" stroke="var(--broadcast)"/>
+            <rect x="606" y="76" width="34" height="28" rx="2" fill="var(--broadcast-bg)" stroke="var(--broadcast)"/>
+            <text x="660" y="95" fill="var(--muted)">… ×10</text>
+            <text x="503" y="94" text-anchor="middle">t1</text>
+            <text x="543" y="94" text-anchor="middle">t2</text>
+            <text x="583" y="94" text-anchor="middle">t3</text>
+            <text x="623" y="94" text-anchor="middle">t4</text>
+          </g>
+          <text x="605" y="134" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">mỗi ô = 1 luồng = 1 core = chạy 1 task</text>
+
+          <text x="509" y="170" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">select / filter / to_date / write parquet</text>
+          <text x="509" y="188" text-anchor="middle" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">→ chạy hoàn toàn trong JVM, nhanh</text>
+
+          <!-- python worker for UDF -->
+          <g stroke="var(--shuffle)" stroke-width="1.3" stroke-dasharray="4 3" fill="none">
+            <path d="M 738 100 L 745 100 L 745 232"/>
+          </g>
+          <g font-family="var(--mono)" fill="currentColor">
+            <rect x="536" y="234" width="216" height="58" rx="4" fill="var(--shuffle-bg)" stroke="var(--shuffle)" stroke-width="1.4"/>
+            <text x="644" y="256" text-anchor="middle" font-size="12" font-weight="700" fill="var(--shuffle)">Python worker</text>
+            <text x="644" y="276" text-anchor="middle" font-size="10" fill="var(--shuffle)">PYSPARK_PYTHON · chỉ khi có UDF</text>
+          </g>
+          <text x="270" y="262" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">từng dòng bị đóng gói, gửi sang Python,</text>
+          <text x="270" y="278" font-family="var(--mono)" font-size="10.5" fill="var(--muted)">chạy hàm, rồi gửi kết quả về JVM → chậm</text>
+        </svg>
+      </div>
+      <figcaption>
+        PySpark có hai thế giới: Python (nơi bạn viết code) và JVM (nơi Spark thật sự chạy).
+        Python chỉ là “bảng điều khiển”. Dữ liệu chỉ bước sang Python khi bạn dùng UDF.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <p>Từ sơ đồ này, mọi dòng trong <code>env.sh</code> đều có lý do:</p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:30%">Biến</th><th>Nó trỏ tới đâu trên sơ đồ</th><th>Thiếu thì sao</th></tr></thead>
+        <tbody>
+          <tr><td><code>JAVA_HOME</code></td><td>Khối JVM. Spark là chương trình Java.</td><td><code>JAVA_GATEWAY_EXITED</code>: Python không khởi động được JVM. Homebrew cài openjdk dạng keg-only nên <code>java</code> không tự vào PATH.</td></tr>
+          <tr><td><code>PYSPARK_DRIVER_PYTHON</code></td><td>Khối Python bên trái.</td><td>Lệch phiên bản với worker → Spark từ chối chạy.</td></tr>
+          <tr><td><code>PYSPARK_PYTHON</code></td><td>Khối Python worker màu đỏ.</td><td>Spark gọi python 3.9 hệ thống (không có pyspark) → UDF chết <b>giữa chừng</b>, còn job không có UDF thì vẫn chạy bình thường. Đó là lý do lỗi này khó hiểu.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label"><code>local[*]</code> nghĩa là gì chính xác</p>
+      <p style="margin-bottom:0">
+        <code>local</code> = driver và executor nằm chung <b>một JVM</b> trên máy bạn, không có cụm.
+        <code>[*]</code> = tạo số luồng làm việc bằng số core (máy bạn: <code>defaultParallelism = 10</code>).
+        <code>local[2]</code> = chỉ 2 luồng; <code>local</code> trơn = 1 luồng. Code giống hệt khi lên
+        cụm thật — chỉ đổi <code>.master(...)</code>. Đây là điểm mạnh lớn nhất của Spark khi học:
+        thứ bạn thấy trên laptop chính là thứ chạy trên cụm, chỉ khác quy mô.
+      </p>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Spark UI — localhost:4040</p>
+      <p style="margin-bottom:0">
+        Chỉ sống khi SparkSession còn mở, nên script <code>01_first_look.py</code> có dòng
+        <code>input(...)</code> trước <code>spark.stop()</code>. Trên Spark 4, job ghi parquet hiện tên
+        lạ <code>$anonfun$withThreadLocalCaptured$1</code> ở tab Jobs; muốn thấy chữ “parquet” và ô
+        <code>Exchange</code> thì sang tab <b>SQL / DataFrame</b>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 03 -->
+<section class="step">
+  <div class="step-no">03</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 04 & 06 · schema</p>
+    <h2>Schema: đừng để Spark đoán</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Biết bốn cách có schema, cái giá của từng cách, và vì sao code
+      thật luôn chọn cách thứ tư.
+    </div>
+
+    <div class="prose">
+      <p>
+        CSV là văn bản thuần. Chuỗi <code>2021-01-01 00:33:44</code> trong file không cho biết nó
+        là thời gian; <code>142</code> không cho biết nó là số. Nên khi đọc CSV, Spark có bốn lựa chọn:
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:26%">Cách</th><th>Kết quả</th><th>Cái giá</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>1. Không làm gì</b><br><code>.option("header","true")</code></td>
+            <td>Có tên cột, nhưng <b>mọi cột là string</b>. <code>PULocationID</code> là <code>"142"</code>, không phải 142.</td>
+            <td>Nhanh, nhưng so sánh/cộng trừ sai hoặc phải ép kiểu khắp nơi.</td>
+          </tr>
+          <tr>
+            <td><b>2. <code>inferSchema</code></b><br><code>.option("inferSchema","true")</code></td>
+            <td>Spark tự đoán kiểu.</td>
+            <td>Phải <b>quét toàn bộ file một lượt riêng</b> chỉ để đoán. Bạn đo: <b>6,46s</b> so với <b>4,30s</b> (+50%). Trên file 100 GB, đó là cả một job thừa. Và đoán có thể sai.</td>
+          </tr>
+          <tr>
+            <td><b>3. Mượn pandas</b><br><code>head -n 101</code> → pandas → <code>createDataFrame</code></td>
+            <td>Có bản nháp schema từ 100 dòng mẫu.</td>
+            <td>Mẫu nhỏ nên đoán lệch: <code>int64</code> → <code>LongType</code> (tốn 8 byte), cột gần như rỗng <code>SR_Flag</code> → <code>DoubleType</code> (vì pandas dùng NaN, mà NaN là float).</td>
+          </tr>
+          <tr>
+            <td><b>4. Tự khai <code>StructType</code></b><br><code>.schema(schema)</code></td>
+            <td>Đúng như bạn muốn.</td>
+            <td>Phải gõ tay một lần. Đổi lại: không quét thừa, không bất ngờ, mọi tháng ra cùng một schema.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · cách 4, trong 01_first_look.py</div>
+<pre><span class="k">from</span> pyspark.sql <span class="k">import</span> types
+
+schema = types.StructType([
+    types.StructField(<span class="s">"hvfhs_license_num"</span>,    types.StringType(),    <span class="k">True</span>),
+    types.StructField(<span class="s">"dispatching_base_num"</span>, types.StringType(),    <span class="k">True</span>),
+    types.StructField(<span class="s">"pickup_datetime"</span>,      types.<span class="hl">TimestampType</span>(), <span class="k">True</span>),
+    types.StructField(<span class="s">"dropoff_datetime"</span>,     types.<span class="hl">TimestampType</span>(), <span class="k">True</span>),
+    types.StructField(<span class="s">"PULocationID"</span>,         types.<span class="hl">IntegerType</span>(),   <span class="k">True</span>),
+    types.StructField(<span class="s">"DOLocationID"</span>,         types.<span class="hl">IntegerType</span>(),   <span class="k">True</span>),
+    types.StructField(<span class="s">"SR_Flag"</span>,              types.<span class="hl">StringType</span>(),    <span class="k">True</span>),
+])
+<span class="c">#                       tên cột ↑                kiểu ↑        nullable ↑</span>
+
+df = spark.read.option(<span class="s">"header"</span>, <span class="s">"true"</span>).schema(schema).csv(CSV)</pre>
+    </div>
+
+    <div class="prose">
+      <h3>Ba quyết định trong schema này, và lý do</h3>
+      <ul>
+        <li><b><code>IntegerType</code> thay vì <code>LongType</code> cho ID</b> — ID zone chỉ tới 265, Integer (4 byte, tới ~2,1 tỷ) là thừa đủ. Long tốn 8 byte. Với 12 triệu dòng × 2 cột, đó là ~96 MB RAM chênh lệch chỉ vì một chữ.</li>
+        <li><b><code>SR_Flag</code> là <code>StringType</code></b> — pandas đoán Double chỉ vì cột rỗng. Một cái cờ không phải số thực. Khai đúng ý nghĩa, đừng khai theo dữ liệu mẫu.</li>
+        <li><b><code>True</code> (nullable)</b> — cho phép giá trị rỗng. Dữ liệu thô gần như luôn có ô trống, nên để <code>True</code> trừ khi bạn chắc chắn.</li>
+      </ul>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Bẫy âm thầm: schema CSV khớp theo VỊ TRÍ, không theo tên</p>
+      <p>
+        Khi bạn đưa <code>.schema(...)</code> cho CSV, Spark gán trường thứ nhất của schema cho cột
+        thứ nhất của file, thứ hai cho thứ hai… Dòng header bị bỏ qua phần tên (tùy chọn
+        <code>enforceSchema</code> mặc định là <code>true</code>).
+      </p>
+      <p>
+        Đó là lý do <code>03_prepare_taxi_data.py</code> phải có <b>hai schema riêng</b>:
+        green đặt <code>store_and_fwd_flag</code> ở vị trí 4, yellow ở vị trí 7. Dùng nhầm schema green
+        cho file yellow, cột <code>passenger_count</code> của yellow sẽ được đọc như
+        <code>store_and_fwd_flag</code>…
+      </p>
+      <p style="margin-bottom:0">
+        Và Spark <b>không báo lỗi</b>. Ở chế độ mặc định (<code>PERMISSIVE</code>), giá trị nào
+        không ép được kiểu thì thành <code>null</code>. Bạn sẽ có một bảng đầy null hoặc đầy số sai,
+        và job vẫn “thành công”. Đây là lý do luôn nhìn <code>show(5)</code> sau khi đọc.
+      </p>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Còn Parquet thì sao?</p>
+      <p style="margin-bottom:0">
+        <code>spark.read.parquet(...)</code> không cần <code>.schema()</code> và không cần
+        <code>inferSchema</code>: schema được ghi sẵn trong footer của từng file Parquet. Nghĩa là
+        bạn khai schema <b>đúng một lần</b> lúc chuyển CSV → Parquet, và mọi người đọc sau đều
+        được hưởng. Đó chính là mục đích của bài 06.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 04 -->
+<section class="step">
+  <div class="step-no">04</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 04 · partitions</p>
+    <h2>Partition: đơn vị của sự song song</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Giải thích được vì sao CSV 717 MB ra <b>10</b> partition còn bản
+      <code>.gz</code> chỉ ra <b>1</b>, và <code>repartition(24)</code> thực sự tốn gì.
+    </div>
+
+    <div class="prose">
+      <p>
+        <b>Partition</b> là một mẩu của DataFrame. Quy tắc vàng: <b>một partition được một task
+        xử lý, một task chiếm một core</b>. Có 10 core mà chỉ 1 partition thì 9 core ngồi chơi.
+        Có 10 core và 24 partition thì mỗi core làm xong mẩu này lại nhặt mẩu tiếp theo.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 250" role="img" aria-label="So sánh: file CSV thường 717 MB được cắt thành 10 mẩu khoảng 72 MB, 10 core cùng làm; file csv.gz không cắt được nên chỉ một core làm, 9 core rảnh">
+          <text x="0" y="14" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">CSV THƯỜNG · 717 MB · CẮT ĐƯỢC Ở BẤT KỲ DẤU XUỐNG DÒNG NÀO</text>
+          <g font-family="var(--mono)" font-size="10" fill="currentColor">
+            <rect x="8"   y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="83"  y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="158" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="233" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="308" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="383" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="458" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="533" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="608" y="26" width="70" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <rect x="683" y="26" width="69" height="34" rx="2" fill="var(--green-bg)" stroke="var(--green)"/>
+            <text x="43"  y="47" text-anchor="middle">~72MB</text>
+            <text x="118" y="47" text-anchor="middle">~72MB</text>
+            <text x="193" y="47" text-anchor="middle">~72MB</text>
+            <text x="268" y="47" text-anchor="middle">~72MB</text>
+            <text x="343" y="47" text-anchor="middle">~72MB</text>
+            <text x="418" y="47" text-anchor="middle">~72MB</text>
+            <text x="493" y="47" text-anchor="middle">~72MB</text>
+            <text x="568" y="47" text-anchor="middle">~72MB</text>
+            <text x="643" y="47" text-anchor="middle">~72MB</text>
+            <text x="717" y="47" text-anchor="middle">~72MB</text>
+          </g>
+          <g font-family="var(--mono)" font-size="10" fill="var(--green)">
+            <text x="43"  y="80" text-anchor="middle">core1</text>
+            <text x="118" y="80" text-anchor="middle">core2</text>
+            <text x="193" y="80" text-anchor="middle">core3</text>
+            <text x="268" y="80" text-anchor="middle">core4</text>
+            <text x="343" y="80" text-anchor="middle">core5</text>
+            <text x="418" y="80" text-anchor="middle">core6</text>
+            <text x="493" y="80" text-anchor="middle">core7</text>
+            <text x="568" y="80" text-anchor="middle">core8</text>
+            <text x="643" y="80" text-anchor="middle">core9</text>
+            <text x="717" y="80" text-anchor="middle">core10</text>
+          </g>
+          <text x="0" y="104" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">→ 10 partition, 10 task chạy cùng lúc</text>
+
+          <text x="0" y="146" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">CSV.GZ · GZIP PHẢI GIẢI NÉN TỪ ĐẦU FILE, KHÔNG NHẢY VÀO GIỮA ĐƯỢC</text>
+          <g font-family="var(--mono)" font-size="10.5" fill="currentColor">
+            <rect x="8" y="158" width="744" height="34" rx="2" fill="var(--shuffle-bg)" stroke="var(--shuffle)"/>
+            <text x="380" y="179" text-anchor="middle" fill="var(--shuffle)">cả file = 1 partition</text>
+          </g>
+          <g font-family="var(--mono)" font-size="10" fill="var(--muted)">
+            <text x="43"  y="212" text-anchor="middle" fill="var(--shuffle)" font-weight="700">core1</text>
+            <text x="118" y="212" text-anchor="middle">rảnh</text>
+            <text x="193" y="212" text-anchor="middle">rảnh</text>
+            <text x="268" y="212" text-anchor="middle">rảnh</text>
+            <text x="343" y="212" text-anchor="middle">rảnh</text>
+            <text x="418" y="212" text-anchor="middle">rảnh</text>
+            <text x="493" y="212" text-anchor="middle">rảnh</text>
+            <text x="568" y="212" text-anchor="middle">rảnh</text>
+            <text x="643" y="212" text-anchor="middle">rảnh</text>
+            <text x="717" y="212" text-anchor="middle">rảnh</text>
+          </g>
+          <text x="0" y="238" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">→ 1 partition, 1 task. Vì vậy bài 06 phải repartition(4) trước khi ghi.</text>
+        </svg>
+      </div>
+      <figcaption>
+        Kết quả bạn đo được trong <code>01_first_look.py</code>: <b>CSV thường 10 partition, CSV.gz 1 partition</b>.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>Con số 10 từ đâu ra</h3>
+      <p>
+        Không phải ngẫu nhiên, và cũng không phải 717 / 128. Khi đọc file, Spark tính kích thước
+        mỗi mẩu theo công thức (rút gọn):
+      </p>
+    </div>
+
+    <div class="code">
+      <div class="code-head">công thức chia file của Spark</div>
+<pre>bytesPerCore = tổng_dung_lượng / defaultParallelism       <span class="c"># 717 MB / 10 ≈ 72 MB</span>
+maxSplit     = min(<span class="n">128 MB</span>, max(<span class="n">4 MB</span>, bytesPerCore))     <span class="c"># min(128, 72) = 72 MB</span>
+số_partition ≈ tổng_dung_lượng / maxSplit                 <span class="c"># 717 / 72 ≈ <span class="hl">10</span></span>
+
+<span class="c"># 128 MB = spark.sql.files.maxPartitionBytes</span>
+<span class="c">#   4 MB = spark.sql.files.openCostInBytes</span></pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Ý nghĩa: Spark cố chia sao cho <b>mỗi core có ít nhất một mẩu</b>, nhưng không mẩu nào
+        quá 128 MB. File nhỏ thì ngược lại — Spark <b>gộp nhiều file nhỏ vào một partition</b>
+        (đó là lý do ở Ngày 5 đọc 28 file parquet green mà chỉ ra 10 partition).
+      </p>
+
+      <h3><code>repartition(24)</code> làm gì, và tốn gì</h3>
+      <p>
+        <code>repartition(n)</code> xáo trộn <b>toàn bộ</b> dữ liệu rồi chia đều thành
+        <code>n</code> mẩu. Vì mỗi dòng có thể phải chuyển sang mẩu khác, đây là một
+        <span class="chip s">shuffle</span> — trong Spark UI nó hiện là ô <code>Exchange</code>.
+        Job ghi parquet sau đó tách thành <b>2 stage</b>:
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Stage</th><th>Số task</th><th>Làm gì</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="num">10</td><td>Đọc CSV theo 10 mẩu ở trên, chia từng dòng vào 24 “giỏ”, ghi giỏ ra đĩa tạm</td></tr>
+          <tr><td><span class="chip s">Exchange</span></td><td class="num">—</td><td>Ranh giới giữa hai stage: mỗi giỏ được gom về một chỗ</td></tr>
+          <tr><td>2</td><td class="num">24</td><td>Mỗi task lấy một giỏ, ghi ra một file <code>part-000xx.snappy.parquet</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Vì sao lại đáng bỏ công repartition</p>
+      <p style="margin-bottom:0">
+        Trả giá một lần shuffle lúc ghi để <b>mọi lần đọc sau</b> có 24 file vừa phải thay vì một
+        cục lớn — ai đọc cũng song song được ngay. Đây là kiểu đánh đổi rất điển hình của data
+        engineering: làm việc nặng một lần ở khâu chuẩn bị để khâu sử dụng nhẹ. Nếu chỉ cần
+        <i>giảm</i> số partition, dùng <code>coalesce(n)</code>: chỉ gộp mẩu cạnh nhau, không shuffle,
+        rẻ hơn (Ngày 5 sẽ dùng).
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 05 -->
+<section class="step">
+  <div class="step-no">05</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 05 · spark-dataframes</p>
+    <h2>Lazy evaluation: transformation và action</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Phân biệt được hai loại lệnh, giải thích con số 0,038s vs 0,67s, và
+      đọc được hai dòng quan trọng trong <code>explain()</code>.
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:22%">Loại</th><th>Ví dụ</th><th>Khi gọi thì Spark…</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Transformation</b><br><span class="chip b">lười</span></td>
+            <td><code>select</code> · <code>filter</code> · <code>withColumn</code> · <code>repartition</code> · <code>groupBy</code> · <code>join</code></td>
+            <td>Chỉ ghi thêm một bước vào kế hoạch. Không đọc byte nào. Trả về một DataFrame <i>mới</i> (DataFrame cũ không đổi).</td>
+          </tr>
+          <tr>
+            <td><b>Action</b><br><span class="chip s">chạy thật</span></td>
+            <td><code>show</code> · <code>count</code> · <code>take</code> · <code>head</code> · <code>collect</code> · <code>write.*</code></td>
+            <td>Lấy toàn bộ kế hoạch, tối ưu, chia task, chạy. Mỗi action = ít nhất một <b>job</b> trong Spark UI.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · 02_dataframes.py</div>
+<pre>t0 = time.time()
+q = df.select(<span class="s">"pickup_datetime"</span>, <span class="s">"PULocationID"</span>, <span class="s">"hvfhs_license_num"</span>) \
+      .filter(df.hvfhs_license_num == <span class="s">"HV0003"</span>)
+<span class="k">print</span>(<span class="s">f"select + filter: {time.time() - t0:.3f}s"</span>)   <span class="c"># transformation</span>
+
+t0 = time.time()
+q.show(<span class="n">5</span>, truncate=<span class="k">False</span>)                                <span class="c"># action</span>
+<span class="k">print</span>(<span class="s">f"show: {time.time() - t0:.2f}s"</span>)</pre>
+    </div>
+
+    <div class="out">
+      <div class="out-head">Bạn đã đo</div>
+<pre>select + filter: <b>0.038s</b>   ← chỉ viết công thức, chưa đụng 12 triệu dòng
+show:            <b>0.67s</b>    ← giờ mới thật sự đọc parquet</pre>
+    </div>
+
+    <div class="panel ask">
+      <p class="panel-label">Câu hỏi sâu hơn: sao <code>show()</code> chỉ mất 0,67s với 12 triệu dòng?</p>
+      <p style="margin-bottom:0">
+        Vì <code>show(5)</code> chỉ cần 5 dòng. Spark biến nó thành <code>LIMIT 5</code>, đọc
+        partition đầu tiên, gom đủ 5 dòng thỏa điều kiện là dừng — không cần quét hết. Trong khi
+        <code>q.count()</code> phải quét <i>toàn bộ</i> để đếm. Hai action khác nhau, cùng một kế hoạch,
+        chi phí rất khác nhau. Spark tối ưu theo <b>cả chuỗi</b>, kể cả action cuối.
+      </p>
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 196" role="img" aria-label="Chuỗi transformation read, select, filter được ghi thành kế hoạch mà không chạy; khi action show được gọi, Catalyst tối ưu toàn bộ kế hoạch rồi mới thực thi">
+          <defs>
+            <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <text x="0" y="14" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">KẾ HOẠCH — CHƯA CÓ GÌ CHẠY</text>
+          <g font-family="var(--mono)" font-size="11.5" fill="currentColor">
+            <rect x="8"   y="28" width="130" height="44" rx="3" fill="none" stroke="var(--broadcast)" stroke-width="1.3" stroke-dasharray="4 3"/>
+            <rect x="178" y="28" width="130" height="44" rx="3" fill="none" stroke="var(--broadcast)" stroke-width="1.3" stroke-dasharray="4 3"/>
+            <rect x="348" y="28" width="130" height="44" rx="3" fill="none" stroke="var(--broadcast)" stroke-width="1.3" stroke-dasharray="4 3"/>
+            <text x="73"  y="55" text-anchor="middle">read.parquet</text>
+            <text x="243" y="55" text-anchor="middle">select 3 cột</text>
+            <text x="413" y="55" text-anchor="middle">filter HV0003</text>
+          </g>
+          <g stroke="currentColor" stroke-width="1.2" marker-end="url(#a5)" color="var(--muted)">
+            <line x1="140" y1="50" x2="174" y2="50"/>
+            <line x1="310" y1="50" x2="344" y2="50"/>
+            <line x1="480" y1="50" x2="540" y2="50"/>
+          </g>
+          <g font-family="var(--mono)" fill="currentColor">
+            <rect x="544" y="28" width="208" height="44" rx="3" fill="var(--shuffle-bg)" stroke="var(--shuffle)" stroke-width="1.5"/>
+            <text x="648" y="49" text-anchor="middle" font-size="12" font-weight="700" fill="var(--shuffle)">show(5)  ← ACTION</text>
+            <text x="648" y="64" text-anchor="middle" font-size="10" fill="var(--shuffle)">bấm nút “nấu”</text>
+          </g>
+
+          <g stroke="var(--shuffle)" stroke-width="1.3" marker-end="url(#a5)" color="var(--shuffle)">
+            <line x1="648" y1="74" x2="648" y2="100"/>
+          </g>
+
+          <rect x="8" y="104" width="744" height="82" rx="3" fill="var(--surface-2)" stroke="currentColor" stroke-width="1.2"/>
+          <text x="22" y="126" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.2" fill="var(--muted)">CATALYST NHÌN CẢ CHUỖI RỒI VIẾT LẠI CHO RẺ NHẤT</text>
+          <g font-family="var(--mono)" font-size="11" fill="currentColor">
+            <text x="22" y="150">• chỉ cần 3 cột → <tspan font-weight="700">column pruning</tspan>: Parquet chỉ đọc 3/7 cột</text>
+            <text x="22" y="170">• có filter → <tspan font-weight="700">predicate pushdown</tspan>: đẩy điều kiện xuống tận lúc đọc file</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>
+        Vì Spark chờ tới action mới chạy, nó có cơ hội nhìn <i>toàn bộ</i> kế hoạch và tối ưu.
+        Nếu mỗi lệnh chạy ngay như pandas, Spark sẽ phải đọc đủ 7 cột trước khi biết bạn chỉ cần 3.
+      </figcaption>
+    </figure>
+
+    <div class="prose">
+      <h3>Nhìn tận mắt bằng <code>explain()</code></h3>
+    </div>
+
+    <div class="out">
+      <div class="out-head">q.explain() — rút gọn, hai dòng cần tìm</div>
+<pre>== Physical Plan ==
+*(1) Filter (isnotnull(hvfhs_license_num) AND (hvfhs_license_num = HV0003))
++- *(1) ColumnarToRow
+   +- FileScan parquet [hvfhs_license_num, pickup_datetime, PULocationID]
+        <b>PushedFilters: [IsNotNull(hvfhs_license_num), EqualTo(hvfhs_license_num,HV0003)]</b>
+        <b>ReadSchema: struct&lt;hvfhs_license_num:string, pickup_datetime:timestamp, PULocationID:int&gt;</b></pre>
+    </div>
+
+    <div class="prose">
+      <ul>
+        <li><b><code>ReadSchema</code></b> chỉ có 3 cột → column pruning đã xảy ra. Các cột <code>dispatching_base_num</code>, <code>DOLocationID</code>… không hề được đọc từ đĩa.</li>
+        <li><b><code>PushedFilters</code></b> → điều kiện được đưa xuống tầng đọc Parquet. Parquet lưu min/max của từng khối dữ liệu, nên khối nào chắc chắn không có <code>HV0003</code> sẽ bị <b>bỏ qua cả khối</b>.</li>
+        <li>Không có ô <code>Exchange</code> → không shuffle. <code>select</code>/<code>filter</code> xử lý từng dòng độc lập, mỗi partition tự làm được, nên cả chuỗi gộp vào <b>một stage</b>.</li>
+      </ul>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Gieo trước cho Ngày 5: narrow và wide</p>
+      <p style="margin-bottom:0">
+        <b>Narrow</b> transformation (<code>select</code>, <code>filter</code>, <code>withColumn</code>): mỗi
+        partition tự làm, không cần dữ liệu partition khác → không shuffle, rẻ.
+        <b>Wide</b> transformation (<code>repartition</code>, <code>groupBy</code>, <code>join</code>): cần gom dữ
+        liệu cùng khóa từ mọi partition → <span class="chip s">Exchange</span>, đắt, và cắt job thành
+        nhiều stage. Toàn bộ Ngày 5 là về loại thứ hai.
+      </p>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">Hệ quả hay bị quên: mỗi action chạy lại từ đầu</p>
+      <p>
+        Spark <b>không tự nhớ</b> kết quả. Xem lại vòng lặp trong <code>03_prepare_taxi_data.py</code>:
+      </p>
+      <div class="code" style="margin-bottom:14px">
+<pre>df.repartition(<span class="n">4</span>).write...parquet(output_path)   <span class="c"># action 1: đọc CSV.gz, ghi</span>
+<span class="k">print</span>(..., df.count(), ...)                       <span class="c"># action 2: ĐỌC LẠI CSV.gz từ đầu để đếm</span></pre>
+      </div>
+      <p style="margin-bottom:0">
+        Mỗi tháng bị đọc và giải nén <b>hai lần</b>. Với dữ liệu nhỏ thì không sao, nhưng cần biết
+        tại sao. Cách sửa: đếm từ file parquet vừa ghi
+        (<code>spark.read.parquet(output_path).count()</code> — Parquet lưu sẵn số dòng trong metadata
+        nên gần như tức thì), hoặc <code>df.cache()</code> nếu cần dùng một DataFrame nhiều lần.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 06 -->
+<section class="step">
+  <div class="step-no">06</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 04 & 06 · parquet</p>
+    <h2>Vì sao data lake chọn Parquet</h2>
+
+    <div class="step-aim">
+      <b>MỤC TIÊU</b> — Hiểu “lưu theo cột” nghĩa là gì, đọc được cấu trúc thư mục output, và
+      giải thích được vì sao parquet green lại <i>to hơn</i> CSV.gz.
+    </div>
+
+    <figure>
+      <div class="fig-frame">
+        <svg viewBox="0 0 760 210" role="img" aria-label="So sánh lưu theo dòng của CSV và lưu theo cột của Parquet: muốn đọc cột PULocationID, CSV phải đọc mọi dòng đủ mọi cột, Parquet chỉ đọc đúng một khối cột">
+          <text x="0" y="14" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">CSV — THEO DÒNG</text>
+          <text x="400" y="14" font-family="var(--mono)" font-size="11" font-weight="700" letter-spacing="1.4" fill="var(--muted)">PARQUET — THEO CỘT</text>
+          <g font-family="var(--mono)" font-size="10.5" fill="currentColor">
+            <rect x="8" y="26" width="352" height="30" rx="2" fill="var(--shuffle-bg)" stroke="var(--shuffle)"/>
+            <rect x="8" y="60" width="352" height="30" rx="2" fill="var(--shuffle-bg)" stroke="var(--shuffle)"/>
+            <rect x="8" y="94" width="352" height="30" rx="2" fill="var(--shuffle-bg)" stroke="var(--shuffle)"/>
+            <text x="18" y="45">HV0003,B02764,2021-01-01 00:33,<tspan font-weight="700">230</tspan>,166</text>
+            <text x="18" y="79">HV0003,B02764,2021-01-01 00:55,<tspan font-weight="700">152</tspan>,167</text>
+            <text x="18" y="113">HV0005,B02510,2021-01-01 00:23,<tspan font-weight="700">233</tspan>,142</text>
+          </g>
+          <text x="8" y="146" font-family="var(--mono)" font-size="10.5" fill="var(--shuffle)">cần 1 cột → vẫn phải đọc và tách cả dòng</text>
+
+          <g font-family="var(--mono)" font-size="10.5" fill="currentColor">
+            <rect x="400" y="26" width="64" height="98" rx="2" fill="none" stroke="var(--rule-strong)"/>
+            <rect x="470" y="26" width="64" height="98" rx="2" fill="none" stroke="var(--rule-strong)"/>
+            <rect x="540" y="26" width="64" height="98" rx="2" fill="none" stroke="var(--rule-strong)"/>
+            <rect x="610" y="26" width="64" height="98" rx="2" fill="var(--green-bg)" stroke="var(--green)" stroke-width="1.6"/>
+            <rect x="680" y="26" width="72" height="98" rx="2" fill="none" stroke="var(--rule-strong)"/>
+            <text x="432" y="44" text-anchor="middle" fill="var(--muted)">license</text>
+            <text x="502" y="44" text-anchor="middle" fill="var(--muted)">base</text>
+            <text x="572" y="44" text-anchor="middle" fill="var(--muted)">pickup</text>
+            <text x="642" y="44" text-anchor="middle" font-weight="700" fill="var(--green)">PULoc</text>
+            <text x="716" y="44" text-anchor="middle" fill="var(--muted)">DOLoc</text>
+            <text x="642" y="70" text-anchor="middle">230</text>
+            <text x="642" y="90" text-anchor="middle">152</text>
+            <text x="642" y="110" text-anchor="middle">233</text>
+          </g>
+          <text x="400" y="146" font-family="var(--mono)" font-size="10.5" fill="var(--green)">cần 1 cột → chỉ đọc đúng khối đó</text>
+
+          <text x="0" y="182" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">Thêm vào đó, mỗi khối cột ghi kèm kiểu dữ liệu, số dòng, min/max → schema có sẵn, bỏ qua được khối không liên quan,</text>
+          <text x="0" y="200" font-family="var(--mono)" font-size="10.5" fill="var(--ink-soft)">và các giá trị cùng kiểu nằm cạnh nhau nên nén rất tốt (cột license gần như toàn "HV0003").</text>
+        </svg>
+      </div>
+    </figure>
+
+    <div class="prose">
+      <h3>Con số bạn đo, và cách đọc chúng đúng</h3>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Chuyển đổi</th><th class="num">Trước</th><th class="num">Sau</th><th>Giải thích</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>fhvhv: CSV → Parquet</td><td class="num">717 MB</td><td class="num"><b>216 MB</b></td>
+            <td>Nhỏ hơn ~3,3 lần. So với CSV <i>chưa nén</i>, Parquet thắng rõ: số lưu nhị phân (Integer = 4 byte thay vì nhiều ký tự), cột lặp lại nén tốt.</td>
+          </tr>
+          <tr>
+            <td>green: CSV.gz → Parquet</td><td class="num">10 MB</td><td class="num"><b>16 MB</b></td>
+            <td>Parquet <b>to hơn</b>. Gzip nén CSV rất mạnh, còn Parquet dùng snappy (nhanh nhưng nén kém hơn), và chia thành 4 file — mỗi file có metadata riêng. Với file nhỏ, phần “vỏ” này đáng kể.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <p class="panel-label">Bài học từ dòng thứ hai</p>
+      <p style="margin-bottom:0">
+        Lý do chọn Parquet <b>không phải</b> là dung lượng. Là: (1) schema đi kèm file, không bao
+        giờ phải đoán lại; (2) đọc theo cột + bỏ qua khối → truy vấn nhanh; (3) chia được, đọc song
+        song được. Nếu phỏng vấn hỏi “Parquet có luôn nhỏ hơn không?”, câu trả lời đúng là
+        <b>không</b> — và bạn có số đo của chính mình để chứng minh.
+      </p>
+    </div>
+
+    <div class="prose">
+      <h3>Giải phẫu thư mục output</h3>
+    </div>
+
+    <div class="out">
+      <div class="out-head">ls data/pq/green/2021/01/</div>
+<pre>_SUCCESS                                          <b>← 0 byte: dấu “job đã xong trọn vẹn”</b>
+._SUCCESS.crc                                     ← checksum, Hadoop sinh ra trên ổ local
+part-00000-&lt;uuid&gt;-c000.<b>snappy</b>.parquet           <b>← 1 file / 1 partition (repartition(4) → 4 file)</b>
+.part-00000-&lt;uuid&gt;-c000.snappy.parquet.crc
+part-00001-...  part-00002-...  part-00003-...</pre>
+    </div>
+
+    <div class="prose">
+      <ul>
+        <li><b>Output của Spark luôn là thư mục</b>, không phải một file — vì mỗi task ghi file riêng của nó, song song.</li>
+        <li><b><code>_SUCCESS</code></b> chỉ xuất hiện khi mọi task ghi xong. Thiếu nó = job chết giữa chừng, các file part có thể dở dang. Pipeline thật (Airflow) thường chờ file này trước khi chạy bước sau.</li>
+        <li><b>Ghi lần hai báo lỗi</b> <code>PATH_ALREADY_EXISTS</code> — mặc định Spark không dám ghi đè. Thêm <code>.mode("overwrite")</code>. Chính nhờ overwrite mà chạy lại một tháng bị lỗi là an toàn (nhớ ưu điểm “dễ retry” của batch ở mục 01).</li>
+        <li><b>Đọc lại rất linh hoạt</b>: <code>spark.read.parquet("data/pq/green/2021/01/")</code> đọc một tháng, <code>"data/pq/green/2021/*"</code> đọc cả năm bằng một lệnh — được vì mọi tháng chung một schema.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 07 -->
+<section class="step">
+  <div class="step-no">07</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 05 · functions & UDF</p>
+    <h2>Hàm có sẵn trước, UDF sau cùng</h2>
+
+    <div class="code">
+      <div class="code-head">python · hàm có sẵn trong pyspark.sql.functions</div>
+<pre><span class="k">from</span> pyspark.sql <span class="k">import</span> functions <span class="k">as</span> F
+
+df.withColumn(<span class="s">"pickup_date"</span>,  F.to_date(df.pickup_datetime)) \
+  .withColumn(<span class="s">"dropoff_date"</span>, F.to_date(df.dropoff_datetime)) \
+  .select(<span class="s">"pickup_date"</span>, <span class="s">"dropoff_date"</span>, <span class="s">"PULocationID"</span>) \
+  .show(<span class="n">5</span>)</pre>
+    </div>
+
+    <div class="prose">
+      <ul>
+        <li><code>withColumn(tên, biểu_thức)</code> thêm cột mới; trùng tên thì <b>ghi đè</b> cột cũ — cẩn thận: ghi đè <code>pickup_datetime</code> bằng một ngày là đổi nghĩa của cột.</li>
+        <li><code>F.to_date</code> cắt bỏ giờ/phút/giây. Gõ <code>F.</code> + Tab để xem hàng trăm hàm khác.</li>
+      </ul>
+
+      <h3>UDF: khi logic quá “điên” cho SQL</h3>
+    </div>
+
+    <div class="code">
+      <div class="code-head">python · ví dụ trong bài giảng</div>
+<pre><span class="k">def</span> crazy_stuff(base_num):           <span class="c"># 'B02884' → 's/b44'</span>
+    num = <span class="k">int</span>(base_num[<span class="n">1</span>:])
+    <span class="k">if</span> num % <span class="n">7</span> == <span class="n">0</span>:  <span class="k">return</span> <span class="s">f's/{num:03x}'</span>
+    <span class="k">elif</span> num % <span class="n">3</span> == <span class="n">0</span>: <span class="k">return</span> <span class="s">f'a/{num:03x}'</span>
+    <span class="k">else</span>:              <span class="k">return</span> <span class="s">f'e/{num:03x}'</span>
+
+crazy_stuff_udf = F.udf(crazy_stuff, returnType=types.StringType())
+df.withColumn(<span class="s">"base_id"</span>, crazy_stuff_udf(df.dispatching_base_num))</pre>
+    </div>
+
+    <div class="prose">
+      <p>
+        Điểm mạnh: đây là Python thường — để trong git, viết unit test được, thứ mà một câu SQL với
+        mười tầng <code>CASE WHEN</code> không làm được. Điểm yếu: nhớ lại sơ đồ ở mục 02.
+      </p>
+    </div>
+
+    <div class="panel warn">
+      <p class="panel-label">UDF có giá</p>
+      <p style="margin-bottom:0">
+        Hàm <code>F.*</code> chạy trong JVM, Catalyst hiểu và tối ưu được. UDF là <b>hộp đen</b>:
+        Spark phải gửi từng dòng sang tiến trình Python worker, chạy hàm, rồi gửi kết quả về — tốn
+        chi phí đóng gói dữ liệu qua lại, và Catalyst không tối ưu được gì bên trong. Đây cũng chính
+        là chỗ <code>PYSPARK_PYTHON</code> sai sẽ làm job chết. Thứ tự ưu tiên: <b>hàm có sẵn →
+        biểu thức SQL → UDF</b>.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ 08 -->
+<section class="step">
+  <div class="step-no">08</div>
+  <div class="step-body">
+    <p class="step-kicker">Bài 06 · preparing-taxi-data</p>
+    <h2>Ghép tất cả lại: pipeline chuẩn bị dữ liệu</h2>
+
+    <div class="prose">
+      <p>
+        Bài 06 trông như “việc vặt”, nhưng nó dùng <b>mọi</b> ý ở trên trong một pipeline batch thật:
+      </p>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th style="width:5%">#</th><th style="width:32%">Bước</th><th>Ý tưởng được dùng</th></tr></thead>
+        <tbody>
+          <tr><td class="num">1</td><td><code>download_taxi.sh green 2021</code> → <code>data/raw/green/2021/01/…csv.gz</code></td><td>Batch theo tháng; mỗi tháng một thư mục, chạy lại được từng tháng. <code>printf "%02d"</code> vì bash 3.2 của macOS không đệm số 0; <code>curl -f</code> để dừng ở tháng không tồn tại thay vì lưu trang 404.</td></tr>
+          <tr><td class="num">2</td><td>Đọc với <code>green_schema</code> / <code>yellow_schema</code></td><td>Mục 03: tự khai schema, và khai <b>riêng</b> cho từng loại vì CSV khớp theo vị trí.</td></tr>
+          <tr><td class="num">3</td><td><code>.repartition(4)</code></td><td>Mục 04: <code>.gz</code> chỉ cho 1 partition → chia ra để bước ghi dùng nhiều core.</td></tr>
+          <tr><td class="num">4</td><td><code>.write.mode("overwrite").parquet(data/pq/green/2021/01/)</code></td><td>Mục 05–06: action kích hoạt cả chuỗi; overwrite để retry an toàn; Parquet mang schema theo.</td></tr>
+          <tr><td class="num">5</td><td><code>spark.read.parquet("data/pq/green/2021/*")</code></td><td>Lợi ích cuối cùng: mọi tháng chung schema → đọc cả năm bằng một dòng, không “bất ngờ” kiểu dữ liệu. Đây chính là đầu vào của Ngày 5.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="panel note">
+      <p class="panel-label">Liên hệ với những ngày trước</p>
+      <p style="margin-bottom:0">
+        Cấu trúc <code>raw/</code> → <code>pq/</code> chính là tầng “bronze → silver” của một data lake.
+        Ở Ngày 3 bạn làm chuyện tương tự bằng dbt (staging model chuẩn hóa kiểu và tên cột) trong
+        warehouse. Hôm nay bạn làm nó bằng Spark trên file, không cần warehouse.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ checkpoint -->
+<section class="checkpoint">
+  <p class="step-kicker">Checkpoint Ngày 4</p>
+  <h2>Đọc file taxi bất kỳ, in schema + vài dòng</h2>
+
+  <div class="prose">
+    <p>Script <code>04_checkpoint.py</code> của bạn gói gọn cả ngày trong ~40 dòng. Chạy lại cả hai trường hợp và tự giải thích từng con số in ra:</p>
+  </div>
+
+  <div class="code">
+    <div class="code-head">bash · trong 06-batch/practice</div>
+<pre><span class="k">source</span> env.sh
+python 04_checkpoint.py data/raw/green/2021/01/green_tripdata_2021_01.csv.gz
+python 04_checkpoint.py data/pq/green/2021/01/</pre>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th style="width:24%">In ra</th><th>Với CSV.gz</th><th>Với Parquet</th></tr></thead>
+      <tbody>
+        <tr><td><b>Số partition</b></td><td>1 — gzip không chia được (mục 04)</td><td>Theo số/kích thước file part, Spark có thể gộp file nhỏ</td></tr>
+        <tr><td><b>Schema</b></td><td>Do <code>inferSchema</code> đoán → tốn thêm một lượt quét (mục 03)</td><td>Đọc từ footer, đúng y schema bạn khai ở bài 06</td></tr>
+        <tr><td><b>Số dòng</b></td><td>Phải giải nén và đếm từng dòng</td><td>Gần như tức thì — số dòng có sẵn trong metadata</td></tr>
+        <tr><td><b>Số job trên UI</b></td><td>Nhiều hơn: có job riêng cho việc đoán schema</td><td>Ít hơn</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <h3>Tự kiểm tra — trả lời không nhìn tài liệu, rồi mở đáp án</h3>
+  </div>
+
+  <details>
+    <summary>1. Vì sao Spark đọc CSV mà mọi cột đều là string?</summary>
+    <div class="details-body">
+      <p>CSV là văn bản, không chứa thông tin kiểu. Mặc định Spark không đoán (khác pandas) vì đoán đòi hỏi quét toàn file. Muốn có kiểu: bật <code>inferSchema</code> (tốn một lượt quét) hoặc tự khai <code>StructType</code>.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>2. Vì sao chọn IntegerType thay vì LongType cho PULocationID?</summary>
+    <div class="details-body">
+      <p>Giá trị chỉ tới 265; Integer 4 byte là đủ, Long 8 byte. Ít byte hơn = ít RAM, ít dữ liệu shuffle, file nhỏ hơn.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>3. Đưa nhầm schema green cho file yellow thì chuyện gì xảy ra?</summary>
+    <div class="details-body">
+      <p>Schema CSV khớp theo vị trí, nên cột bị gán lệch. Ở chế độ <code>PERMISSIVE</code> mặc định, giá trị không ép được kiểu thành <code>null</code>, giá trị ép được thì thành số sai. Spark không báo lỗi — chỉ phát hiện được khi nhìn dữ liệu.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>4. Vì sao CSV 717 MB ra 10 partition, còn CSV.gz ra 1?</summary>
+    <div class="details-body">
+      <p>CSV thường cắt được ở bất kỳ dấu xuống dòng nào. Spark chọn kích thước mẩu = min(128 MB, 717 MB / 10 core ≈ 72 MB) → ~10 mẩu. Gzip phải giải nén tuần tự từ đầu file nên không cắt được → 1 partition, 1 core.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>5. Gọi df.repartition(24) xong, Spark UI không có job nào. Tại sao? Khi nào nó mới chạy, và tốn gì?</summary>
+    <div class="details-body">
+      <p><code>repartition</code> là transformation, lười. Nó chạy khi có action, ví dụ <code>write.parquet</code>. Nó là một shuffle (ô <code>Exchange</code>), cắt job thành 2 stage: stage đọc (10 task) và stage ghi (24 task → 24 file).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>6. Vì sao select + filter mất 0,038s còn show() mất 0,67s? Và count() sẽ thế nào?</summary>
+    <div class="details-body">
+      <p>select/filter chỉ ghi vào kế hoạch. <code>show(5)</code> là action, nhưng chỉ cần 5 dòng nên dừng sớm. <code>count()</code> phải quét hết mọi partition nên lâu hơn — trừ khi Spark lấy được số dòng từ metadata Parquet.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>7. Trong explain(), PushedFilters và ReadSchema cho biết điều gì?</summary>
+    <div class="details-body">
+      <p><code>ReadSchema</code> chỉ liệt kê cột thật sự được đọc → column pruning. <code>PushedFilters</code> là điều kiện được đẩy xuống tầng đọc Parquet → predicate pushdown; Parquet dùng min/max để bỏ qua cả khối không thỏa.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>8. Parquet có luôn nhỏ hơn CSV không? Vậy chọn nó vì đâu?</summary>
+    <div class="details-body">
+      <p>Không. Bạn đo được green: CSV.gz 10 MB → Parquet 16 MB. Chọn Parquet vì: schema đi kèm, lưu theo cột (đọc đúng cột cần, bỏ qua khối), chia được để đọc song song. So với CSV chưa nén thì thường nhỏ hơn nhiều (717 → 216 MB).</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>9. File _SUCCESS để làm gì?</summary>
+    <div class="details-body">
+      <p>Dấu hiệu job ghi đã hoàn tất trọn vẹn. Thiếu nó nghĩa là các file part có thể dở dang. Bước sau của pipeline nên chờ có file này mới đọc.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>10. Vì sao nên tránh UDF nếu có hàm F.* làm được? Và nó liên quan gì đến PYSPARK_PYTHON?</summary>
+    <div class="details-body">
+      <p>Hàm có sẵn chạy trong JVM và được Catalyst tối ưu. UDF bắt Spark chuyển từng dòng sang Python worker và ngược lại, chậm và là hộp đen với optimizer. Python worker đó chính là trình thông dịch mà <code>PYSPARK_PYTHON</code> trỏ tới; sai thì UDF chết giữa chừng.</p>
+    </div>
+  </details>
+
+  <details>
+    <summary>11. Trong 03_prepare_taxi_data.py, mỗi file CSV.gz bị đọc mấy lần? Sửa thế nào?</summary>
+    <div class="details-body">
+      <p>Hai lần: <code>write</code> là một action, <code>df.count()</code> là action thứ hai và chạy lại cả chuỗi từ việc đọc CSV. Sửa: đếm từ parquet vừa ghi, hoặc <code>cache()</code> nếu cần dùng lại DataFrame.</p>
+    </div>
+  </details>
+
+  <div class="panel note">
+    <p class="panel-label">Nối sang Ngày 5</p>
+    <p style="margin-bottom:0">
+      Hôm nay mọi thứ đều là <b>narrow</b>: mỗi partition tự làm phần của mình, chỉ có một lần
+      shuffle do bạn chủ động gọi <code>repartition</code>. Ngày 5 (<code>GROUP BY</code>, <code>JOIN</code>)
+      là lúc shuffle <i>tự xuất hiện</i> — và hiểu partition + lazy evaluation hôm nay là điều kiện
+      để đọc được execution plan ngày mai.
+    </p>
+  </div>
+</section>
+
+<p class="closing">
+  Ôn tập Ngày 4 · module <code>06-batch</code> · data-engineering-zoomcamp<br>
+  Số đo lấy từ chính lần chạy của bạn trong <code>06-batch/practice</code>: PySpark 4.2.0 · OpenJDK 17 ·
+  <code>local[*]</code> trên 10 core · fhvhv 2021-01, green + yellow 2021.<br>
+  Tiếp theo: Ngày 5 — Spark SQL, GroupBy, Join.
+</p>
+
+</div>
