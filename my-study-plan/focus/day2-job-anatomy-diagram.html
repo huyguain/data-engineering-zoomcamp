@@ -1,0 +1,403 @@
+<title>Daily Zone Revenue Job</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column; diagrams scroll sideways inside their own frame on phones.
+   Colour = stage identity: teal = stage map, amber = shuffle, indigo = stage reduce. */
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --fg: #17202b; --muted: #5b6676; --line: #d3d9e1;
+  --map: #0e7a72; --map-soft: #dcf1ee;
+  --shuffle: #b86e00; --shuffle-soft: #fbecd2;
+  --reduce: #3a4ec2; --reduce-soft: #e2e6fb;
+  --src-green: #2f8a3a; --src-yellow: #a88600;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f141a; --surface: #161d26; --fg: #e5eaf0; --muted: #98a3b2; --line: #2c3644;
+  --map: #45c6ba; --map-soft: #11302d; --shuffle: #f0a93a; --shuffle-soft: #382810;
+  --reduce: #93a1ff; --reduce-soft: #1d244c; --src-green: #63c770; --src-yellow: #ddbd3f;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f141a; --surface: #161d26; --fg: #e5eaf0; --muted: #98a3b2; --line: #2c3644;
+  --map: #45c6ba; --map-soft: #11302d; --shuffle: #f0a93a; --shuffle-soft: #382810;
+  --reduce: #93a1ff; --reduce-soft: #1d244c; --src-green: #63c770; --src-yellow: #ddbd3f;
+  color-scheme: dark }
+
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.6; }
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 40px; }
+header { display: grid; gap: 8px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font-size: clamp(26px, 4vw, 36px); line-height: 1.2; text-wrap: balance; }
+h2 { margin: 0; font-size: 21px; line-height: 1.3; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; }
+.lead { color: var(--muted); }
+section { display: grid; gap: 16px; min-width: 0; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.frame { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.frame svg { display: block; min-width: 900px; width: 100%; height: auto; }
+.frame.small svg { min-width: 560px; }
+
+/* SVG paint, all from tokens */
+.t { fill: var(--fg); font-family: var(--font-body); font-size: 13px; }
+.t-m { fill: var(--muted); font-family: var(--font-body); font-size: 12px; }
+.t-mono { fill: var(--fg); font-family: var(--font-mono); font-size: 12px; }
+.t-big { font-family: var(--font-mono); font-size: 26px; font-weight: 600; }
+.t-head { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; fill: var(--muted); }
+.b { font-weight: 600; }
+.box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+.map-box { fill: var(--map-soft); stroke: var(--map); stroke-width: 1.4; }
+.map-task { fill: var(--map); }
+.map-c { fill: var(--map); }
+.sh-box { fill: var(--shuffle-soft); stroke: var(--shuffle); stroke-width: 1.4; stroke-dasharray: 6 4; }
+.sh-c { fill: var(--shuffle); }
+.red-box { fill: var(--reduce-soft); stroke: var(--reduce); stroke-width: 1.4; }
+.red-task { fill: var(--surface); stroke: var(--reduce); stroke-width: 1.2; }
+.red-c { fill: var(--reduce); }
+.g-part { fill: var(--src-green); }
+.y-part { fill: var(--src-yellow); }
+.arrow { stroke: var(--muted); stroke-width: 1.6; fill: none; }
+.arrow-r { stroke: var(--reduce); stroke-width: 1.4; fill: none; stroke-dasharray: 4 3; }
+.arrowhead { fill: var(--muted); }
+.arrowhead-r { fill: var(--reduce); }
+.badge circle { fill: var(--fg); }
+.badge text { fill: var(--bg); font-family: var(--font-mono); font-size: 12px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+.ghost { fill: none; stroke: var(--muted); stroke-width: 1; opacity: .55; }
+.bar { fill: var(--shuffle); }
+.bracket { stroke: var(--reduce); stroke-width: 1.6; fill: none; }
+
+/* Key numbers */
+.keys { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.key { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+.key .top { display: flex; align-items: baseline; gap: 10px; }
+.key .n { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--fg); color: var(--bg); font-family: var(--font-mono); font-size: 12px; font-weight: 600; flex: none; }
+.key .v { font-family: var(--font-mono); font-size: 22px; font-weight: 600; }
+.key.map .v { color: var(--map); } .key.sh .v { color: var(--shuffle); } .key.red .v { color: var(--reduce); }
+.key p { font-size: 14px; }
+.key .say { color: var(--muted); font-size: 13.5px; }
+
+/* Combine illustration */
+.combine { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 16px; align-items: center; }
+.combine .col { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; overflow-x: auto; }
+.combine .lbl { font-family: var(--font-mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.combine .mid { font-family: var(--font-mono); font-size: 12px; color: var(--map); text-align: center; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; }
+td.num, th.num { text-align: right; }
+tr.hl td { background: var(--map-soft); }
+.note { font-size: 13.5px; color: var(--muted); }
+code { font-family: var(--font-mono); font-size: .9em; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.tbl { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+.tbl td, .tbl th { padding: 9px 12px; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tag { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .combine { grid-template-columns: minmax(0, 1fr); }
+  .combine .mid { padding-block: 4px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">06_daily_zone_revenue.py · đo bằng 11_stage_probe.py</div>
+    <h1>Job daily zone revenue chạy thế nào</h1>
+    <p class="lead">Đọc <span class="num">15,571,166</span> chuyến taxi green + yellow 2021, tính số chuyến, doanh thu, quãng đường trung bình theo zone × ngày × loại taxi, gắn tên zone, ghi ra <span class="num">91,280</span> dòng Parquet. Các số khoanh tròn là 4 con số cần nói khi phỏng vấn.</p>
+  </header>
+
+  <!-- ============ MAIN FLOW ============ -->
+  <section>
+    <h2>Toàn cảnh: từ file đến kết quả</h2>
+    <div class="frame">
+      <svg viewBox="0 0 1120 480" role="img" aria-label="Luồng job: 21 partition đầu vào, stage 5 với 21 task, shuffle 6.5 MB, AQE gộp 200 partition còn 6, stage 7 với 6 task join broadcast bảng zones, ghi 6 file">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+          <marker id="ahr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-r"/></marker>
+        </defs>
+
+        <!-- column heads -->
+        <text x="20" y="40" class="t-head">ĐẦU VÀO</text>
+        <text x="210" y="40" class="t-head">STAGE 5 · MAP</text>
+        <text x="490" y="40" class="t-head">EXCHANGE</text>
+        <text x="620" y="40" class="t-head">AQE</text>
+        <text x="780" y="40" class="t-head">STAGE 7 · REDUCE</text>
+        <text x="985" y="40" class="t-head">ĐẦU RA</text>
+
+        <!-- inputs -->
+        <rect x="20" y="70" width="160" height="120" rx="8" class="box"/>
+        <text x="34" y="95" class="t b">green 2021</text>
+        <text x="34" y="113" class="t-m">570,466 dòng · 10 partition</text>
+        <g class="g-part">
+          <rect x="34" y="130" width="22" height="16" rx="2"/><rect x="62" y="130" width="22" height="16" rx="2"/><rect x="90" y="130" width="22" height="16" rx="2"/><rect x="118" y="130" width="22" height="16" rx="2"/><rect x="146" y="130" width="22" height="16" rx="2"/>
+          <rect x="34" y="154" width="22" height="16" rx="2"/><rect x="62" y="154" width="22" height="16" rx="2"/><rect x="90" y="154" width="22" height="16" rx="2"/><rect x="118" y="154" width="22" height="16" rx="2"/><rect x="146" y="154" width="22" height="16" rx="2"/>
+        </g>
+
+        <rect x="20" y="210" width="160" height="150" rx="8" class="box"/>
+        <text x="34" y="235" class="t b">yellow 2021</text>
+        <text x="34" y="253" class="t-m">15,000,700 dòng · 11 partition</text>
+        <g class="y-part">
+          <rect x="34" y="270" width="22" height="16" rx="2"/><rect x="62" y="270" width="22" height="16" rx="2"/><rect x="90" y="270" width="22" height="16" rx="2"/><rect x="118" y="270" width="22" height="16" rx="2"/><rect x="146" y="270" width="22" height="16" rx="2"/>
+          <rect x="34" y="294" width="22" height="16" rx="2"/><rect x="62" y="294" width="22" height="16" rx="2"/><rect x="90" y="294" width="22" height="16" rx="2"/><rect x="118" y="294" width="22" height="16" rx="2"/><rect x="146" y="294" width="22" height="16" rx="2"/>
+          <rect x="34" y="318" width="22" height="16" rx="2"/>
+        </g>
+        <text x="20" y="390" class="t-m">10 + 11 = 21 partition</text>
+        <text x="20" y="408" class="t-m">1 partition = 1 task</text>
+
+        <path d="M180 130 L205 190" class="arrow" marker-end="url(#ah)"/>
+        <path d="M180 285 L205 240" class="arrow" marker-end="url(#ah)"/>
+
+        <!-- stage 5 -->
+        <rect x="210" y="70" width="250" height="330" rx="10" class="map-box"/>
+        <text x="226" y="96" class="t b">21 task chạy song song</text>
+        <g class="map-task">
+          <rect x="226" y="110" width="24" height="24" rx="3"/><rect x="257" y="110" width="24" height="24" rx="3"/><rect x="288" y="110" width="24" height="24" rx="3"/><rect x="319" y="110" width="24" height="24" rx="3"/><rect x="350" y="110" width="24" height="24" rx="3"/><rect x="381" y="110" width="24" height="24" rx="3"/><rect x="412" y="110" width="24" height="24" rx="3"/>
+          <rect x="226" y="141" width="24" height="24" rx="3"/><rect x="257" y="141" width="24" height="24" rx="3"/><rect x="288" y="141" width="24" height="24" rx="3"/><rect x="319" y="141" width="24" height="24" rx="3"/><rect x="350" y="141" width="24" height="24" rx="3"/><rect x="381" y="141" width="24" height="24" rx="3"/><rect x="412" y="141" width="24" height="24" rx="3"/>
+          <rect x="226" y="172" width="24" height="24" rx="3"/><rect x="257" y="172" width="24" height="24" rx="3"/><rect x="288" y="172" width="24" height="24" rx="3"/><rect x="319" y="172" width="24" height="24" rx="3"/><rect x="350" y="172" width="24" height="24" rx="3"/><rect x="381" y="172" width="24" height="24" rx="3"/><rect x="412" y="172" width="24" height="24" rx="3"/>
+        </g>
+        <text x="226" y="230" class="t-m">Mỗi task làm 4 việc:</text>
+        <text x="226" y="254" class="t">1. Đọc Parquet, chỉ 4 cột cần</text>
+        <text x="226" y="278" class="t">2. Lọc ngày ngay lúc đọc</text>
+        <text x="242" y="294" class="t-m">(PushedFilters)</text>
+        <text x="226" y="318" class="t">3. Union green + yellow</text>
+        <text x="226" y="342" class="t b">4. Gộp trước trong partition</text>
+        <text x="242" y="358" class="t-m">partial_count / sum / avg</text>
+        <g class="badge"><circle cx="452" cy="72" r="13"/><text x="452" y="72">1</text></g>
+        <g class="badge"><circle cx="452" cy="342" r="13"/><text x="452" y="342">2</text></g>
+
+        <path d="M460 235 L486 235" class="arrow" marker-end="url(#ah)"/>
+
+        <!-- exchange -->
+        <rect x="490" y="70" width="100" height="330" rx="10" class="sh-box"/>
+        <text x="540" y="120" class="t-m" text-anchor="middle">shuffle</text>
+        <text x="540" y="140" class="t-m" text-anchor="middle">qua mạng</text>
+        <text x="540" y="228" class="t-big sh-c" text-anchor="middle">6.5</text>
+        <text x="540" y="250" class="t-mono" text-anchor="middle">MB</text>
+        <text x="540" y="340" class="t-m" text-anchor="middle">ranh giới</text>
+        <text x="540" y="358" class="t-m" text-anchor="middle">stage</text>
+        <g class="badge"><circle cx="582" cy="72" r="13"/><text x="582" y="72">2</text></g>
+
+        <path d="M590 235 L616 235" class="arrow" marker-end="url(#ah)"/>
+
+        <!-- AQE -->
+        <rect x="620" y="70" width="130" height="330" rx="10" class="box"/>
+        <text x="685" y="110" class="t-m" text-anchor="middle">plan ghi</text>
+        <text x="685" y="140" class="t-big" text-anchor="middle" style="fill: var(--muted)">200</text>
+        <text x="685" y="160" class="t-m" text-anchor="middle">partition</text>
+        <path d="M685 175 L685 215" class="arrow" marker-end="url(#ah)"/>
+        <text x="685" y="235" class="t-m" text-anchor="middle">AQE thấy shuffle</text>
+        <text x="685" y="251" class="t-m" text-anchor="middle">nhỏ, gộp lại</text>
+        <path d="M685 262 L685 295" class="arrow" marker-end="url(#ah)"/>
+        <text x="685" y="330" class="t-big red-c" text-anchor="middle">6</text>
+        <text x="685" y="350" class="t-m" text-anchor="middle">partition thật</text>
+        <g class="badge"><circle cx="742" cy="72" r="13"/><text x="742" y="72">3</text></g>
+
+        <path d="M750 235 L776 235" class="arrow" marker-end="url(#ah)"/>
+
+        <!-- stage 7 -->
+        <rect x="780" y="70" width="180" height="330" rx="10" class="red-box"/>
+        <text x="796" y="96" class="t b">6 task</text>
+        <g>
+          <rect x="796" y="110" width="148" height="34" rx="5" class="red-task"/><text x="806" y="132" class="t-mono">final agg + join</text>
+          <rect x="796" y="152" width="148" height="34" rx="5" class="red-task"/><text x="806" y="174" class="t-mono">final agg + join</text>
+          <rect x="796" y="194" width="148" height="34" rx="5" class="red-task"/><text x="806" y="216" class="t-mono">final agg + join</text>
+          <rect x="796" y="236" width="148" height="34" rx="5" class="red-task"/><text x="806" y="258" class="t-mono">final agg + join</text>
+          <rect x="796" y="278" width="148" height="34" rx="5" class="red-task"/><text x="806" y="300" class="t-mono">final agg + join</text>
+          <rect x="796" y="320" width="148" height="34" rx="5" class="red-task"/><text x="806" y="342" class="t-mono">final agg + join</text>
+        </g>
+        <text x="796" y="384" class="t-m">avg = sum ÷ count ở đây</text>
+
+        <!-- zones broadcast -->
+        <rect x="780" y="420" width="180" height="48" rx="8" class="box"/>
+        <text x="796" y="441" class="t b">zones · 265 dòng</text>
+        <text x="796" y="458" class="t-m">broadcast tới mọi executor</text>
+        <path d="M870 420 L870 404" class="arrow-r" marker-end="url(#ahr)"/>
+        <g class="badge"><circle cx="952" cy="422" r="13"/><text x="952" y="422">4</text></g>
+
+        <path d="M960 235 L986 235" class="arrow" marker-end="url(#ah)"/>
+
+        <!-- output -->
+        <g>
+          <rect x="990" y="120" width="110" height="24" rx="4" class="box"/><text x="1002" y="137" class="t-mono">part-00000</text>
+          <rect x="990" y="152" width="110" height="24" rx="4" class="box"/><text x="1002" y="169" class="t-mono">part-00001</text>
+          <rect x="990" y="184" width="110" height="24" rx="4" class="box"/><text x="1002" y="201" class="t-mono">part-00002</text>
+          <rect x="990" y="216" width="110" height="24" rx="4" class="box"/><text x="1002" y="233" class="t-mono">part-00003</text>
+          <rect x="990" y="248" width="110" height="24" rx="4" class="box"/><text x="1002" y="265" class="t-mono">part-00004</text>
+          <rect x="990" y="280" width="110" height="24" rx="4" class="box"/><text x="1002" y="297" class="t-mono">part-00005</text>
+        </g>
+        <text x="990" y="330" class="t b">6 file Parquet</text>
+        <text x="990" y="348" class="t-m">91,280 dòng</text>
+        <text x="990" y="366" class="t-m">1 task = 1 file</text>
+      </svg>
+    </div>
+    <p class="note">Ngoài 2 stage chính còn các stage 0–4, mỗi stage 1 task: đọc schema Parquet, đọc header CSV zones, dựng bảng broadcast.</p>
+  </section>
+
+  <!-- ============ 4 NUMBERS ============ -->
+  <section>
+    <h2>4 con số và câu nói ngắn cho mỗi số</h2>
+    <div class="keys">
+      <div class="key map">
+        <div class="top"><span class="n">1</span><span class="v">21 task</span></div>
+        <p>Green 10 + yellow 11 partition đầu vào. Số partition do kích thước file và <code>maxPartitionBytes</code> (128 MB) quyết định, không do số dòng.</p>
+        <p class="say">"Stage đọc có 21 task vì có 21 partition đầu vào."</p>
+      </div>
+      <div class="key sh">
+        <div class="top"><span class="n">2</span><span class="v">6.5 MB</span></div>
+        <p>Mỗi task gộp trước trong partition của mình, nên chỉ gửi 1 dòng cho mỗi (zone, ngày, loại taxi) thay vì từng chuyến.</p>
+        <p class="say">"Nhờ partial aggregate, 15.5 triệu dòng chỉ còn 6.5 MB shuffle."</p>
+      </div>
+      <div class="key red">
+        <div class="top"><span class="n">3</span><span class="v">200 → 6</span></div>
+        <p>200 là mặc định của <code>spark.sql.shuffle.partitions</code>. AQE nhìn kích thước shuffle thật rồi gộp các partition nhỏ.</p>
+        <p class="say">"AQE gộp 200 partition xuống 6 vì shuffle chỉ có 6.5 MB."</p>
+      </div>
+      <div class="key">
+        <div class="top"><span class="n">4</span><span class="v">broadcast</span></div>
+        <p>Zones 265 dòng, dưới ngưỡng 10 MB, nên được gửi nguyên bảng tới mọi executor. Bảng lớn không phải shuffle thêm.</p>
+        <p class="say">"Tắt broadcast thì thêm 1 stage và 2.6 MB shuffle."</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ZOOM: MAP-SIDE COMBINE ============ -->
+  <section>
+    <h2>Phóng to số 2: gộp trước trong một partition</h2>
+    <p>Mỗi task không gửi từng chuyến đi. Nó gom các chuyến cùng key lại trước, rồi mới gửi. Avg không cộng dồn được, nên Spark gửi cặp (sum, count) và chỉ chia ở stage 7.</p>
+    <div class="combine">
+      <div class="col">
+        <div class="lbl">Trong 1 partition · trước khi gộp</div>
+        <table>
+          <thead><tr><th>zone</th><th>ngày</th><th>loại</th><th class="num">tiền</th><th class="num">km</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td class="num">132</td><td>2021-03-01</td><td>yellow</td><td class="num">52.30</td><td class="num">17.1</td></tr>
+            <tr><td class="num">236</td><td>2021-03-01</td><td>yellow</td><td class="num">11.80</td><td class="num">1.9</td></tr>
+            <tr class="hl"><td class="num">132</td><td>2021-03-01</td><td>yellow</td><td class="num">46.50</td><td class="num">14.1</td></tr>
+            <tr><td class="num">236</td><td>2021-03-01</td><td>yellow</td><td class="num">9.30</td><td class="num">1.2</td></tr>
+            <tr class="hl"><td class="num">132</td><td>2021-03-01</td><td>yellow</td><td class="num">61.00</td><td class="num">18.4</td></tr>
+            <tr><td colspan="5" class="tag">… hàng trăm nghìn dòng nữa</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mid">partial_<br>count / sum / avg<br>→</div>
+      <div class="col">
+        <div class="lbl">Gửi đi qua shuffle · sau khi gộp</div>
+        <table>
+          <thead><tr><th>key</th><th class="num">count</th><th class="num">sum tiền</th><th class="num">avg km giữ dạng</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td>132 · 03-01 · yellow</td><td class="num">3</td><td class="num">159.80</td><td class="num">(49.6, 3)</td></tr>
+            <tr><td>236 · 03-01 · yellow</td><td class="num">2</td><td class="num">21.10</td><td class="num">(3.1, 2)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="note">Số liệu trong bảng là ví dụ minh hoạ. Đây chính là map-side combine, cùng ý tưởng với <code>reduceByKey</code>. <code>groupByKey</code> không gộp trước nên phải shuffle toàn bộ giá trị.</p>
+  </section>
+
+  <!-- ============ ZOOM: AQE ============ -->
+  <section>
+    <h2>Phóng to số 3: AQE gộp 200 partition thành 6</h2>
+    <p>Sau khi stage 5 chạy xong, Spark biết chính xác mỗi partition shuffle nặng bao nhiêu. 200 partition trung bình chỉ khoảng 33 KB, quá nhỏ, nên AQE gộp các partition liền nhau thành 6 nhóm.</p>
+    <div class="frame">
+      <svg id="aqe" viewBox="0 0 1000 190" role="img" aria-label="200 partition shuffle nhỏ được gộp thành 6 partition">
+        <text x="20" y="28" class="t-head">KHÔNG AQE · 200 PARTITION · 200 TASK · 200 FILE NHỎ</text>
+        <g id="bars"></g>
+        <g id="brackets"></g>
+        <text x="20" y="178" class="t-head">CÓ AQE · 6 PARTITION · 6 TASK</text>
+      </svg>
+    </div>
+    <p class="note">Vì sao đúng 6: mặc định <code>parallelismFirst=true</code>, AQE nhắm khoảng 1 MB mỗi partition (<code>minPartitionSize</code>), nên 6.5 MB ra khoảng 6. Đây là suy ra từ cấu hình mặc định, chưa đo riêng. Lưu ý: <code>explain()</code> in plan trước khi AQE can thiệp (<code>isFinalPlan=false</code>), nên vẫn thấy 200. Số thật phải xem trong Spark UI.</p>
+  </section>
+
+  <!-- ============ ZOOM: BROADCAST VS SMJ ============ -->
+  <section>
+    <h2>Phóng to số 4: broadcast join và sort-merge join</h2>
+    <div class="frame small">
+      <svg viewBox="0 0 1000 250" role="img" aria-label="So sánh broadcast join và sort-merge join">
+        <defs>
+          <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker>
+          <marker id="ahr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead-r"/></marker>
+        </defs>
+        <!-- left: broadcast -->
+        <text x="20" y="30" class="t b">Broadcast hash join (đang dùng)</text>
+        <rect x="20" y="50" width="130" height="40" rx="6" class="box"/><text x="34" y="75" class="t">zones 265 dòng</text>
+        <rect x="200" y="110" width="80" height="34" rx="5" class="red-task"/><text x="212" y="132" class="t-mono">task 1</text>
+        <rect x="300" y="110" width="80" height="34" rx="5" class="red-task"/><text x="312" y="132" class="t-mono">task 2</text>
+        <rect x="400" y="110" width="80" height="34" rx="5" class="red-task"/><text x="412" y="132" class="t-mono">… 6</text>
+        <path d="M150 70 C 200 70, 230 85, 238 106" class="arrow-r" marker-end="url(#ahr2)"/>
+        <path d="M150 70 C 260 70, 330 85, 338 106" class="arrow-r" marker-end="url(#ahr2)"/>
+        <path d="M150 70 C 320 70, 430 85, 438 106" class="arrow-r" marker-end="url(#ahr2)"/>
+        <text x="200" y="66" class="t-m">mỗi task nhận 1 bản sao</text>
+        <text x="20" y="180" class="t">Kết quả aggregate nằm yên tại chỗ.</text>
+        <text x="20" y="200" class="t">Không shuffle thêm.</text>
+        <text x="20" y="230" class="t-mono b">7 stage · shuffle 6.5 MB</text>
+
+        <line x1="510" y1="20" x2="510" y2="235" style="stroke: var(--line)"/>
+
+        <!-- right: sort-merge -->
+        <text x="540" y="30" class="t b">Sort-merge join (autoBroadcastJoinThreshold=-1)</text>
+        <rect x="540" y="55" width="130" height="34" rx="5" class="box"/><text x="552" y="77" class="t">kết quả agg</text>
+        <rect x="540" y="105" width="130" height="34" rx="5" class="box"/><text x="552" y="127" class="t">zones</text>
+        <rect x="720" y="72" width="80" height="50" rx="6" class="sh-box"/><text x="760" y="95" class="t-mono" text-anchor="middle">shuffle</text><text x="760" y="112" class="t-mono" text-anchor="middle">theo zone</text>
+        <path d="M670 72 L716 90" class="arrow" marker-end="url(#ah2)"/>
+        <path d="M670 122 L716 106" class="arrow" marker-end="url(#ah2)"/>
+        <rect x="850" y="75" width="120" height="44" rx="6" class="red-task"/><text x="862" y="95" class="t-mono">sort + merge</text><text x="862" y="111" class="t-m">stage mới</text>
+        <path d="M800 97 L846 97" class="arrow" marker-end="url(#ah2)"/>
+        <text x="540" y="180" class="t">Cả hai bên phải shuffle theo key join,</text>
+        <text x="540" y="200" class="t">sinh thêm 1 stage.</text>
+        <text x="540" y="230" class="t-mono b">8 stage · shuffle 6.5 MB + 2.6 MB</text>
+      </svg>
+    </div>
+    <div class="tbl">
+      <table>
+        <thead><tr><th>Cấu hình (cùng một job)</th><th class="num">Stage</th><th>Task ở phía reduce</th><th>Shuffle</th></tr></thead>
+        <tbody>
+          <tr><td>Broadcast + AQE (mặc định)</td><td class="num">7</td><td class="num">6</td><td class="num">6.5 MB</td></tr>
+          <tr><td>Sort-merge + AQE</td><td class="num">8</td><td class="num">6, thêm 1 stage 2 task</td><td class="num">6.5 MB + 2.6 MB</td></tr>
+          <tr><td>Sort-merge, không AQE</td><td class="num">8</td><td class="num">200 + 200</td><td class="num">6.5 MB + 5.1 MB</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Thời gian chạy 1–4 giây ở kích thước này không dùng để so sánh được. Khi phỏng vấn, nói về số stage và lượng shuffle.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var svgNS = "http://www.w3.org/2000/svg";
+  var bars = document.getElementById("bars");
+  var brackets = document.getElementById("brackets");
+  if (!bars || !brackets) return;
+  var x0 = 20, w = 960, n = 200, step = w / n, top = 45, base = 115;
+  for (var i = 0; i < n; i++) {
+    // deterministic small variation so partitions look uneven but tiny
+    var h = 22 + ((i * 37) % 23);
+    var r = document.createElementNS(svgNS, "rect");
+    r.setAttribute("x", (x0 + i * step).toFixed(2));
+    r.setAttribute("y", base - h);
+    r.setAttribute("width", (step - 1.2).toFixed(2));
+    r.setAttribute("height", h);
+    r.setAttribute("class", "bar");
+    bars.appendChild(r);
+  }
+  var groups = 6, per = n / groups;
+  for (var g = 0; g < groups; g++) {
+    var a = x0 + g * per * step + 2, b = x0 + (g + 1) * per * step - 4, y = 128;
+    var p = document.createElementNS(svgNS, "path");
+    p.setAttribute("d", "M" + a + " " + y + " L" + a + " " + (y + 8) + " L" + b + " " + (y + 8) + " L" + b + " " + y);
+    p.setAttribute("class", "bracket");
+    brackets.appendChild(p);
+    var t = document.createElementNS(svgNS, "text");
+    t.setAttribute("x", (a + b) / 2);
+    t.setAttribute("y", y + 26);
+    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("class", "t-mono red-c");
+    t.textContent = "partition " + (g + 1) + " ≈ 1 MB";
+    brackets.appendChild(t);
+  }
+})();
+</script>

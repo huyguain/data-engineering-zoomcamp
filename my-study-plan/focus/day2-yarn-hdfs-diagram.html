@@ -1,0 +1,424 @@
+<title>YARN + HDFS: 9 mũi tên</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one study sheet — controls, the cluster diagram as the centerpiece, then reference tables to recite from. */
+:root {
+  --bg: #f2f4f6;
+  --surface: #ffffff;
+  --ink: #16202b;
+  --muted: #5a6674;
+  --line: #d3dae2;
+  --frame: #e7ecf1;
+  --yarn: #a86a12;      /* YARN control plane */
+  --spark: #4549b8;     /* Spark driver ↔ executor */
+  --data: #0b7a70;      /* data movement */
+  --yarn-soft: #f6ecdc;
+  --spark-soft: #e8e9fa;
+  --data-soft: #ddf2ef;
+  --font-body: "Be Vietnam Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #10151b; --surface: #18212a; --ink: #e4eaf0; --muted: #94a0ad;
+    --line: #2d3945; --frame: #1d2731;
+    --yarn: #e2a94b; --spark: #9599f6; --data: #3fc3b5;
+    --yarn-soft: #3a2c15; --spark-soft: #262a52; --data-soft: #123a36;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #10151b; --surface: #18212a; --ink: #e4eaf0; --muted: #94a0ad;
+  --line: #2d3945; --frame: #1d2731;
+  --yarn: #e2a94b; --spark: #9599f6; --data: #3fc3b5;
+  --yarn-soft: #3a2c15; --spark-soft: #262a52; --data-soft: #123a36;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  padding-block: 32px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 40px; }
+
+header { display: grid; gap: 8px; }
+.eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+h1 { font-size: clamp(28px, 4vw, 40px); line-height: 1.15; margin: 0; font-weight: 700; text-wrap: balance; }
+h2 { font-size: 21px; margin: 0; font-weight: 700; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); max-width: 65ch; }
+
+section { display: grid; gap: 16px; }
+
+/* controls */
+.controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button {
+  font: 500 14px var(--font-body); color: var(--muted); background: transparent;
+  border: 0; padding: 8px 14px; cursor: pointer;
+}
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--spark-soft); color: var(--spark); font-weight: 600; }
+button:focus-visible, summary:focus-visible, input:focus-visible { outline: 2px solid var(--spark); outline-offset: 2px; }
+.toggle { display: inline-flex; gap: 8px; align-items: center; font-size: 14px; cursor: pointer; }
+.hint { font-size: 13px; color: var(--muted); }
+
+/* diagram */
+.diagram { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+svg text { font-family: var(--font-body); fill: var(--ink); }
+svg .t-title { font-size: 15px; font-weight: 700; }
+svg .t-sub { font-size: 12px; fill: var(--muted); font-family: var(--font-mono); }
+svg .t-frame { font-size: 12px; font-weight: 600; fill: var(--muted); font-family: var(--font-mono); letter-spacing: .04em; }
+svg .lbl { font-size: 12px; fill: var(--muted); font-family: var(--font-mono); }
+.box { fill: var(--surface); stroke: var(--ink); stroke-width: 1.4; }
+.box.yarn { fill: var(--yarn-soft); stroke: var(--yarn); }
+.box.exec { fill: var(--spark-soft); stroke: var(--spark); }
+.box.hdfs { fill: var(--data-soft); stroke: var(--data); }
+.frame { fill: var(--frame); stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.chip rect { fill: var(--spark); }
+.chip text { fill: var(--surface); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: .06em; }
+
+.arrow path { fill: none; stroke-width: 2.2; }
+.arrow.c-yarn path { stroke: var(--yarn); }
+.arrow.c-spark path { stroke: var(--spark); }
+.arrow.c-data path { stroke: var(--data); }
+.arrow.c-yarn .badge circle { fill: var(--yarn); }
+.arrow.c-spark .badge circle { fill: var(--spark); }
+.arrow.c-data .badge circle { fill: var(--data); }
+.badge { cursor: pointer; }
+.badge circle { stroke: var(--surface); stroke-width: 2.5; }
+.badge text { fill: var(--surface); font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+.mk-yarn { fill: var(--yarn); } .mk-spark { fill: var(--spark); } .mk-data { fill: var(--data); }
+.arrow { transition: opacity .2s; }
+svg.focus .arrow:not(.on) { opacity: .12; }
+svg.focus .arrow.on path { stroke-width: 3.4; }
+
+body[data-mode="client"] .only-cluster,
+body[data-mode="cluster"] .only-client { display: none; }
+body.practice svg .lbl { visibility: hidden; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.legend i { width: 22px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* tables */
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; background: var(--frame); }
+tr:last-child td { border-bottom: 0; }
+td code, p code, li code { font-family: var(--font-mono); font-size: 12.5px; background: var(--frame); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.arrows-table { min-width: 820px; }
+.arrows-table tbody tr { cursor: pointer; }
+.arrows-table tbody tr:hover, .arrows-table tbody tr.on { background: var(--spark-soft); }
+.num { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; color: var(--surface); font: 700 12px var(--font-mono); }
+.num.c-yarn { background: var(--yarn); } .num.c-spark { background: var(--spark); } .num.c-data { background: var(--data); }
+.route { font-family: var(--font-mono); font-size: 12.5px; white-space: nowrap; }
+body.practice .ans { filter: blur(5px); cursor: pointer; user-select: none; }
+body.practice .ans.shown { filter: none; user-select: auto; }
+.mode-note { color: var(--muted); font-size: 12.5px; display: block; }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+
+details { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; }
+details + details { margin-top: 0; }
+summary { cursor: pointer; font-weight: 600; }
+details p { margin: 10px 0 0; max-width: 70ch; }
+.qs { display: grid; gap: 10px; }
+
+.check { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.check label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.check input { margin-top: 5px; accent-color: var(--data); }
+
+.steps { margin: 0; padding-left: 20px; display: grid; gap: 4px; max-width: 70ch; }
+footer { font-size: 13px; color: var(--muted); }
+
+@media (prefers-reduced-motion: reduce) { .arrow { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Ôn phỏng vấn · Ngày 2 · Phần 4 Mức 2</div>
+    <h1>YARN + HDFS: 9 mũi tên</h1>
+    <p class="lede">Vẽ lại sơ đồ này ra giấy và nói được mỗi mũi tên một câu. Số trên mũi tên là thứ tự các bước xảy ra khi chạy một job Spark trên YARN. Bấm vào một số để làm nổi bật mũi tên đó và dòng giải thích tương ứng.</p>
+  </header>
+
+  <section aria-label="Sơ đồ">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Deploy mode">
+        <button type="button" id="btn-client" aria-pressed="true">Client mode</button>
+        <button type="button" id="btn-cluster" aria-pressed="false">Cluster mode</button>
+      </div>
+      <label class="toggle" for="practice"><input type="checkbox" id="practice"> Chế độ luyện tập: ẩn nhãn và lời giải</label>
+      <span class="hint" id="mode-hint">Driver chạy trên máy Mac: thấy log ngay, nhưng tắt máy thì job chết.</span>
+    </div>
+
+    <div class="diagram">
+      <svg id="dia" viewBox="0 0 960 620" role="img" aria-label="Sơ đồ Spark chạy trên YARN và đọc dữ liệu từ HDFS, với 9 mũi tên đánh số">
+        <defs>
+          <marker id="m-yarn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-yarn" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="m-spark" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-spark" d="M0 0 L10 5 L0 10 z"/></marker>
+          <marker id="m-data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="mk-data" d="M0 0 L10 5 L0 10 z"/></marker>
+        </defs>
+
+        <!-- frames -->
+        <rect class="frame" x="240" y="180" width="700" height="260" rx="12"/>
+        <text class="t-frame" x="258" y="202">MÁY WORKER · NodeManager (mỗi máy một cái)</text>
+        <rect class="frame" x="240" y="490" width="700" height="120" rx="12"/>
+        <text class="t-frame" x="258" y="512">HDFS · thay bằng GCS (gs://) thì không có NameNode, cần connector</text>
+
+        <!-- boxes -->
+        <rect class="box" x="20" y="20" width="200" height="90" rx="10"/>
+        <text class="t-title" x="36" y="50">Client (Mac)</text>
+        <text class="t-sub" x="36" y="72">nơi gõ spark-submit</text>
+        <g class="chip only-client"><rect x="36" y="82" width="62" height="20" rx="4"/><text x="67" y="96" text-anchor="middle">DRIVER</text></g>
+
+        <rect class="box yarn" x="640" y="20" width="300" height="90" rx="10"/>
+        <text class="t-title" x="656" y="50">ResourceManager  <tspan class="t-sub">:8088</tspan></text>
+        <text class="t-sub" x="656" y="72">chia RAM/CPU cả cụm</text>
+        <text class="t-sub" x="656" y="92">không chạy code Spark</text>
+
+        <rect class="box yarn" x="270" y="215" width="260" height="80" rx="10"/>
+        <text class="t-title" x="286" y="243">ApplicationMaster</text>
+        <text class="t-sub" x="286" y="264">mỗi job một cái · đi xin tài nguyên</text>
+        <g class="chip only-cluster"><rect x="452" y="227" width="62" height="20" rx="4"/><text x="483" y="241" text-anchor="middle">DRIVER</text></g>
+
+        <rect class="box exec" x="270" y="330" width="200" height="80" rx="10"/>
+        <text class="t-title" x="286" y="360">Executor 1</text>
+        <text class="t-sub" x="286" y="382">container · 2 core · 3 GB</text>
+
+        <rect class="box exec" x="700" y="330" width="200" height="80" rx="10"/>
+        <text class="t-title" x="716" y="360">Executor 2</text>
+        <text class="t-sub" x="716" y="382">container · 2 core · 3 GB</text>
+
+        <rect class="box hdfs" x="270" y="525" width="280" height="68" rx="10"/>
+        <text class="t-title" x="286" y="552">NameNode</text>
+        <text class="t-sub" x="286" y="574">metadata: file → block → máy nào</text>
+
+        <rect class="box hdfs" x="640" y="525" width="270" height="68" rx="10"/>
+        <text class="t-title" x="656" y="552">DataNode (mỗi máy)</text>
+        <text class="t-sub" x="656" y="574">block 128 MB × 3 bản sao</text>
+
+        <!-- arrows -->
+        <g class="arrow c-yarn" data-n="1">
+          <path d="M220 50 H636" marker-end="url(#m-yarn)"/>
+          <text class="lbl" x="428" y="78" text-anchor="middle">spark-submit --master yarn</text>
+          <g class="badge"><circle cx="428" cy="50" r="12"/><text x="428" y="50">1</text></g>
+        </g>
+        <g class="arrow c-yarn" data-n="2">
+          <path d="M700 110 V150 H450 V211" marker-end="url(#m-yarn)"/>
+          <text class="lbl" x="712" y="138">bật container AM</text>
+          <g class="badge"><circle cx="575" cy="150" r="12"/><text x="575" y="150">2</text></g>
+        </g>
+        <g class="arrow c-yarn" data-n="3">
+          <path d="M530 245 H860 V114" marker-end="url(#m-yarn)"/>
+          <text class="lbl" x="850" y="200" text-anchor="end">xin container</text>
+          <g class="badge"><circle cx="860" cy="170" r="12"/><text x="860" y="170">3</text></g>
+        </g>
+        <g class="arrow c-yarn" data-n="4">
+          <path d="M480 295 V310 H800 V326" marker-end="url(#m-yarn)"/>
+          <path d="M480 310 H420 V326" marker-end="url(#m-yarn)"/>
+          <text class="lbl" x="560" y="302">NM bật executor</text>
+          <g class="badge"><circle cx="660" cy="310" r="12"/><text x="660" y="310">4</text></g>
+        </g>
+
+        <!-- client mode: driver on the Mac -->
+        <g class="arrow c-spark only-client" data-n="5">
+          <path d="M270 390 H100 V114" marker-end="url(#m-spark)"/>
+          <text class="lbl" x="110" y="418">đăng ký, trả kết quả</text>
+          <g class="badge"><circle cx="180" cy="390" r="12"/><text x="180" y="390">5</text></g>
+        </g>
+        <g class="arrow c-spark only-client" data-n="6">
+          <path d="M140 110 V355 H266" marker-end="url(#m-spark)"/>
+          <text class="lbl" x="150" y="290">gửi task</text>
+          <g class="badge"><circle cx="140" cy="235" r="12"/><text x="140" y="235">6</text></g>
+        </g>
+        <!-- cluster mode: driver inside the AM -->
+        <g class="arrow c-spark only-cluster" data-n="5">
+          <path d="M340 330 V299" marker-end="url(#m-spark)"/>
+          <g class="badge"><circle cx="340" cy="313" r="11"/><text x="340" y="313">5</text></g>
+        </g>
+        <g class="arrow c-spark only-cluster" data-n="6">
+          <path d="M300 295 V326" marker-end="url(#m-spark)"/>
+          <g class="badge"><circle cx="300" cy="313" r="11"/><text x="300" y="313">6</text></g>
+        </g>
+
+        <g class="arrow c-data" data-n="9">
+          <path d="M474 370 H696" marker-start="url(#m-data)" marker-end="url(#m-data)"/>
+          <text class="lbl" x="585" y="398" text-anchor="middle">shuffle giữa executor</text>
+          <g class="badge"><circle cx="585" cy="370" r="12"/><text x="585" y="370">9</text></g>
+        </g>
+        <g class="arrow c-data" data-n="7">
+          <path d="M370 410 V521" marker-end="url(#m-data)"/>
+          <text class="lbl" x="388" y="472">block nằm ở đâu? (chỉ metadata)</text>
+          <g class="badge"><circle cx="370" cy="468" r="12"/><text x="370" y="468">7</text></g>
+        </g>
+        <g class="arrow c-data" data-n="8">
+          <path d="M800 414 V521" marker-start="url(#m-data)" marker-end="url(#m-data)"/>
+          <text class="lbl" x="818" y="472">đọc/ghi block</text>
+          <g class="badge"><circle cx="800" cy="468" r="12"/><text x="800" y="468">8</text></g>
+        </g>
+      </svg>
+    </div>
+
+    <div class="legend">
+      <span><i style="background: var(--yarn)"></i>YARN cấp tài nguyên (①–④)</span>
+      <span><i style="background: var(--spark)"></i>Spark điều khiển: driver ↔ executor (⑤ ⑥)</span>
+      <span><i style="background: var(--data)"></i>Dữ liệu di chuyển (⑦ ⑧ ⑨)</span>
+      <span>Trên giấy: executor nào cũng làm cả ⑦ và ⑧. Sơ đồ chỉ vẽ một bên cho gọn.</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Giải thích từng mũi tên</h2>
+    <div class="tablewrap">
+      <table class="arrows-table">
+        <thead><tr><th>#</th><th>Từ → Đến</th><th>Mang theo cái gì</th><th>Nếu hỏng thì thấy gì</th></tr></thead>
+        <tbody>
+          <tr data-n="1"><td><span class="num c-yarn">1</span></td><td class="route">Client → RM</td><td class="ans">Gói ứng dụng: file <code>.py</code>, jar, cấu hình, số executor, RAM, core</td><td class="ans"><code>Retrying connect to server 0.0.0.0:8032</code>: RM chưa chạy hoặc thiếu <code>HADOOP_CONF_DIR</code></td></tr>
+          <tr data-n="2"><td><span class="num c-yarn">2</span></td><td class="route">RM → NodeManager</td><td class="ans">Lệnh bật <strong>container đầu tiên</strong> để chạy ApplicationMaster</td><td class="ans">App kẹt ở <code>ACCEPTED</code>: cụm không còn chỗ cho AM</td></tr>
+          <tr data-n="3"><td><span class="num c-yarn">3</span></td><td class="route">AM → RM</td><td class="ans">Xin N container cho executor; RM trả lời container nằm trên máy nào</td><td class="ans">Xin 3 executor mà chỉ được 2: thiếu RAM (2 × 3 GB + AM 1 GB = 7 GB trên node 8 GB)</td></tr>
+          <tr data-n="4"><td><span class="num c-yarn">4</span></td><td class="route">AM → NodeManager</td><td class="ans">Lệnh bật executor trong các container đã được cấp</td><td class="ans"><code>Container killed by YARN for exceeding memory limits</code>: tăng <code>spark.executor.memoryOverhead</code></td></tr>
+          <tr data-n="5"><td><span class="num c-spark">5</span></td><td class="route">Executor → Driver</td><td class="ans">Executor đăng ký với driver, sau đó gửi trạng thái và kết quả task<span class="mode-note">Client mode: về máy Mac. Cluster mode: về AM.</span></td><td class="ans">Client mode: tắt máy Mac hoặc mất mạng thì driver chết và <strong>cả job chết</strong></td></tr>
+          <tr data-n="6"><td><span class="num c-spark">6</span></td><td class="route">Driver → Executor</td><td class="ans">Task: đoạn code cùng partition cần xử lý</td><td class="ans">Task lỗi được thử lại 4 lần (<code>spark.task.maxFailures</code>), quá số lần đó thì job fail</td></tr>
+          <tr data-n="7"><td><span class="num c-data">7</span></td><td class="route">Executor → NameNode</td><td class="ans">Chỉ hỏi metadata: block nào, ở DataNode nào. <strong>Dữ liệu không đi qua NameNode</strong></td><td class="ans">NameNode chết thì cả HDFS không đọc được (điểm chết duy nhất nếu không có HA)</td></tr>
+          <tr data-n="8"><td><span class="num c-data">8</span></td><td class="route">Executor ↔ DataNode</td><td class="ans">Đọc/ghi dữ liệu thật theo từng block</td><td class="ans">DataNode chết thì đọc bản sao khác; nếu replication = 1 thì báo <code>missing blocks</code></td></tr>
+          <tr data-n="9"><td><span class="num c-data">9</span></td><td class="route">Executor ↔ Executor</td><td class="ans">Dữ liệu shuffle: sau <code>groupBy</code>/<code>join</code>, task lấy kết quả trung gian từ máy khác</td><td class="ans"><code>FetchFailedException</code>: executor giữ file shuffle đã chết, Spark chạy lại stage trước</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="cols">
+    <section>
+      <h2>Nhớ bằng một công ty xây dựng</h2>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Thành phần</th><th>Ví dụ đời thường</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ResourceManager</strong></td><td>Phòng điều phối: chia người và máy móc cho các dự án</td></tr>
+            <tr><td><strong>NodeManager</strong></td><td>Đội trưởng ở từng công trường</td></tr>
+            <tr><td><strong>ApplicationMaster</strong></td><td>Quản lý của một dự án</td></tr>
+            <tr><td><strong>Driver</strong></td><td>Kỹ sư trưởng cầm bản vẽ (DAG), chia việc</td></tr>
+            <tr><td><strong>Executor</strong></td><td>Tổ thợ làm việc trong khu được cấp</td></tr>
+            <tr><td><strong>NameNode</strong></td><td>Sổ danh mục kho: hàng nào nằm ở kệ nào</td></tr>
+            <tr><td><strong>DataNode</strong></td><td>Các kệ hàng chứa hàng thật</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>Ba câu hay bị hỏi xoáy</h2>
+      <div class="qs">
+        <details>
+          <summary>Client mode khác cluster mode ở đâu?</summary>
+          <p>Chỉ khác chỗ <strong>driver nằm ở đâu</strong>. Client mode: driver ở máy submit, thấy log ngay, hợp để debug, nhưng tắt máy là job chết. Cluster mode: driver nằm trong ApplicationMaster trên cụm, hợp cho job production. Bấm nút Cluster mode ở trên để thấy mũi tên ⑤ ⑥ dời chỗ.</p>
+        </details>
+        <details>
+          <summary>Vì sao executor phải hỏi NameNode trước (⑦)?</summary>
+          <p>Để biết block nằm ở máy nào, từ đó driver xếp task chạy ngay trên máy có dữ liệu (<strong>data locality</strong>): chuyển code đến dữ liệu, không chuyển dữ liệu đến code. GCS không có locality, lần đọc nào cũng đi qua mạng; bù lại lưu trữ tách khỏi tính toán nên tắt cụm vẫn còn dữ liệu.</p>
+        </details>
+        <details>
+          <summary>ResourceManager có chạy code Spark không?</summary>
+          <p>Không. RM chỉ chia tài nguyên. Driver lập kế hoạch, executor chạy task. Nếu RM chết giữa chừng, các executor đang chạy vẫn tiếp tục cho tới khi cần xin thêm container.</p>
+        </details>
+      </div>
+    </section>
+  </div>
+
+  <div class="cols">
+    <section>
+      <h2>Cách luyện</h2>
+      <ol class="steps">
+        <li>Nhìn sơ đồ 5 phút, sau đó bật <strong>Chế độ luyện tập</strong>.</li>
+        <li>Úp màn hình, vẽ ra giấy 7 khối và 9 mũi tên có đánh số.</li>
+        <li>Nói to mỗi mũi tên một câu. Đạt nếu nói trọn trong khoảng 90 giây.</li>
+        <li>Bấm vào ô bị làm mờ trong bảng để đối chiếu.</li>
+        <li>Vẽ lại lần nữa ở cluster mode.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Tự kiểm tra</h2>
+      <ul class="check">
+        <li><label><input type="checkbox" id="c1"> Vẽ đủ 7 khối: Client, RM, NM, AM, Executor ×2, NameNode, DataNode</label></li>
+        <li><label><input type="checkbox" id="c2"> Đánh số đủ 9 mũi tên theo đúng thứ tự</label></li>
+        <li><label><input type="checkbox" id="c3"> Vẽ hai lần, client mode và cluster mode, chỉ ra driver dời đi đâu</label></li>
+        <li><label><input type="checkbox" id="c4"> Trả lời được: file fhvhv 717 MB có đi qua NameNode không? (Không. NameNode chỉ trả metadata của 6 block)</label></li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>Nguồn: day2-spark-hadoop-practice.md, Phần 4. Con số container 3 GB lấy từ phép tính overhead ở Phần 3: 2 GB + max(384 MB, 10%), làm tròn theo bội 1 GB.</footer>
+</div>
+
+<script>
+(function () {
+  var body = document.body;
+  var svg = document.getElementById('dia');
+  var hint = document.getElementById('mode-hint');
+  var hints = {
+    client: 'Driver chạy trên máy Mac: thấy log ngay, nhưng tắt máy thì job chết.',
+    cluster: 'Driver chạy bên trong ApplicationMaster trên cụm: tắt máy Mac job vẫn chạy.'
+  };
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  function setMode(m) {
+    body.dataset.mode = m;
+    document.getElementById('btn-client').setAttribute('aria-pressed', m === 'client');
+    document.getElementById('btn-cluster').setAttribute('aria-pressed', m === 'cluster');
+    hint.textContent = hints[m];
+    store.set('yh-mode', m);
+  }
+  document.getElementById('btn-client').addEventListener('click', function () { setMode('client'); });
+  document.getElementById('btn-cluster').addEventListener('click', function () { setMode('cluster'); });
+  setMode(store.get('yh-mode') === 'cluster' ? 'cluster' : 'client');
+
+  var active = null;
+  function focusArrow(n) {
+    active = (active === n) ? null : n;
+    svg.classList.toggle('focus', active !== null);
+    svg.querySelectorAll('.arrow').forEach(function (g) { g.classList.toggle('on', g.dataset.n === active); });
+    document.querySelectorAll('.arrows-table tbody tr').forEach(function (tr) { tr.classList.toggle('on', tr.dataset.n === active); });
+  }
+  svg.querySelectorAll('.arrow').forEach(function (g) {
+    g.querySelector('.badge').addEventListener('click', function () { focusArrow(g.dataset.n); });
+  });
+  document.querySelectorAll('.arrows-table tbody tr').forEach(function (tr) {
+    tr.addEventListener('click', function (ev) {
+      var cell = ev.target.closest('.ans');
+      if (body.classList.contains('practice') && cell && !cell.classList.contains('shown')) {
+        cell.classList.add('shown');
+        return;
+      }
+      focusArrow(tr.dataset.n);
+    });
+  });
+
+  var practice = document.getElementById('practice');
+  practice.addEventListener('change', function () {
+    body.classList.toggle('practice', practice.checked);
+    document.querySelectorAll('.ans.shown').forEach(function (c) { c.classList.remove('shown'); });
+  });
+
+  ['c1', 'c2', 'c3', 'c4'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.checked = store.get('yh-' + id) === '1';
+    el.addEventListener('change', function () { store.set('yh-' + id, el.checked ? '1' : '0'); });
+  });
+})();
+</script>

@@ -1,0 +1,5 @@
+kafka-python==2.3.0
+pandas<3
+pyarrow
+psycopg2-binary
+numpy

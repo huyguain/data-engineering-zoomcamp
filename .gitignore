@@ -30,3 +30,7 @@ _SUCCESS
 
 # *.csv ở trên không khớp .csv.gz
 *.csv.gz
+
+# Dữ liệu và venv thực hành module 07-streaming
+07-streaming/practice/data/
+07-streaming/practice/.venv/
